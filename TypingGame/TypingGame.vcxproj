@@ -159,6 +159,7 @@
     <ClInclude Include="Impact.h" />
     <ClInclude Include="ImpactMotion.h" />
     <ClInclude Include="Probrem.h" />
+    <ClInclude Include="ReductionMotion.h" />
     <ClInclude Include="render.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
@@ -170,11 +171,13 @@
     <ClCompile Include="Bolt.cpp" />
     <ClCompile Include="BoltMotion.cpp" />
     <ClCompile Include="Effect.cpp" />
+    <ClCompile Include="EffectMotion.cpp" />
     <ClCompile Include="Font.cpp" />
     <ClCompile Include="HP.cpp" />
     <ClCompile Include="Impact.cpp" />
     <ClCompile Include="ImpactMotion.cpp" />
     <ClCompile Include="Probrem.cpp" />
+    <ClCompile Include="ReductionMotion.cpp" />
     <ClCompile Include="render.cpp" />
     <ClCompile Include="Time.cpp" />
     <ClCompile Include="TypingGame.cpp" />

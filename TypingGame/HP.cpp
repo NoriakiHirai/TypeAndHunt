@@ -1,6 +1,7 @@
 #include "HP.h"
 
 const int HP_MAX = 5;
+
 HP::HP(HDC hdc, BOOL trs, RECT rec, float px, float py, float sx, float sy)
 {
 	hp = 5;
@@ -27,7 +28,7 @@ void HP::UpdateHP(int delta)
 {
 	hp += delta;
 	if (hp > HP_MAX) {
-		hp = 5;
+		hp = HP_MAX;
 	}
 	else if (hp < 0) {
 		hp = 0;
@@ -52,4 +53,9 @@ void HP::Draw(HDC hdc)
 		0, 32, 128, 32,
 		color
 	);
+}
+
+void HP::ResetHP()
+{
+	hp = HP_MAX;
 }

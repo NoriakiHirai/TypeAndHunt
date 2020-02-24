@@ -1,6 +1,8 @@
 #pragma once
 #include "render.h"
 
+extern const int HP_MAX;
+
 class HP :
     public Object
 {
@@ -15,6 +17,7 @@ public:
 	void Update() override {}
 	void UpdateHP(int);
 	void Draw(HDC hdc);
+	void ResetHP();
 
 	const int GetHP() const { return hp; }
 };

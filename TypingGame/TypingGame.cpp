@@ -3,16 +3,17 @@
 
 #include "framework.h"
 #include "TypingGame.h"
-#include <iostream>
-#include <regex>
-#include <string>
-#include <strstream>
 #include <Windows.h>
 #include <stdlib.h>
 #include <string.h>
 #include <tchar.h>
 #include <stdio.h>
 #include <atlstr.h>
+#include <iostream>
+#include <regex>
+#include <string>
+#include <strstream>
+#include <chrono>
 #include "render.h"
 #include "utility.h"
 #include "Font.h"
@@ -21,6 +22,7 @@
 #include "Effect.h"
 #include "BoltMotion.h"
 #include "ImpactMotion.h"
+#include "ReductionMotion.h"
 #include "Bolt.h"
 #include "Impact.h"
 
@@ -30,6 +32,15 @@
 #define WINDOW_WIDTH    1024
 #define WINDOW_HEIGHT   768
 #define MAX_LOADSTRING 100
+
+enum GAME_PHASE
+{
+	NONE = 0,
+	TITLE,
+	LEVELDISP,
+	PLAY,
+	RESULT,
+};
 
 // グローバル変数:
 HINSTANCE hInst;                                // 現在のインターフェイス
@@ -82,9 +93,14 @@ HBITMAP	g_hbmpMsg;
 HDC		g_hMdcMsg;
 BITMAP  g_BitmapMsg;
 
+HBITMAP	g_hbmpSign;
+HDC		g_hMdcSign;
+BITMAP  g_BitmapSign;
+
 Sample* Bgo;
 Sample* Skull;
 Sample* Msg;
+Effect* Sign;
 Bolt* g_Bolt;
 Impact* SpikyEffect;
 HP* Hp;
@@ -95,15 +111,16 @@ Font* InputStr;
 // エフェクトモーション
 BoltMotion* BoltMot;
 ImpactMotion* ImpactMot;
+ReductionMotion* ReducMot;
 
 // ダブルバッファリング用変数
 HBITMAP g_hBitmap;		// バックバッファ用ビットマップ
 HDC		g_hMdcBitmap;	// バックバッファ用メモリーDC
 
 // ゲームの進捗
-int Phase;
+GAME_PHASE Phase;
 int Winner;
-int g_WaitStart;
+std::chrono::system_clock::time_point g_WaitStart;
 
 // このコード モジュールに含まれる関数の宣言を転送します:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -116,8 +133,10 @@ void Draw(HDC hdc);
 bool CheckInput(int num);
 void Finalize();
 
+void Title();
 void Play();
 void PrepareMessage(int winner);
+void ResetInput();
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -173,12 +192,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		Update();
 		// WM_PAINT強制要求
 		InvalidateRect(hWnd, nullptr, FALSE);
-
-		//// フレームレート固定のための待ち合わせ
-		//DWORD delta = Timer::deltaTime();
-		//if (delta < g_FrameRate) {
-		//	Sleep(g_FrameRate - delta);
-		//}
 	}
 
     return (int) msg.wParam;
@@ -222,7 +235,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	std::ostrstream oss;
-
+	char t;
     switch (message)
     {
     case WM_COMMAND:
@@ -287,33 +300,76 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 		case VK_RETURN:
-			// 入力文字チェック
-			// 一致していたら、攻撃エフェクトを表示して次の問題を表示する
-			if (Phase > 1) break;
-			if (CheckInput(probremNum)) {
-				g_Bolt->Start();
-				// インプット文字列の初期化
-				memset(input, 0, sizeof(input));
-				if (probremNum == 9) {
-					Phase = 2;
-					PrepareMessage(1);
+			switch (Phase)
+			{
+			case NONE:
+				break;
+			case TITLE:
+				Phase = GAME_PHASE::LEVELDISP;
+				Msg->SetUse(false);
+				Sign->Start();
+				Sign->SetRect(RECT{ 0, 224, 128, 62 });
+				break;
+			case LEVELDISP:
+				break;
+			case PLAY:
+				if (CheckInput(probremNum)) {
+					g_Bolt->Start();
+					// インプット文字列の初期化
+					ResetInput();
+					if (probremNum == 9) {
+						Phase = GAME_PHASE::RESULT;
+						PrepareMessage(1);
+					}
+					else {
+						++probremNum;
+						Timer->Start();
+					}
 				}
-				else {
-					++probremNum;
-					Timer->Start();
-				}
+				break;
+			case RESULT:
+				// タイトル画面に戻る準備
+				Msg->SetPosition((WINDOW_WIDTH * 2 / 10) + 50, WINDOW_HEIGHT * 2 / 10);
+				Msg->SetSize(512, 256);
+				Msg->SetRect(RECT{ 0, 64, 128,32 });
+				
+				Skull->SetUse(false);
+				ProbremStr->SetUse(false);
+				InputStr->SetUse(false);
+				Sign->SetPosition(WINDOW_WIDTH * 4 / 10, WINDOW_HEIGHT * 3 / 10);
+				Hp->ResetHP();
+
+				probremNum = 0;
+				ResetInput();
+
+				Phase = GAME_PHASE::TITLE;
+				break;
+			default:
+				break;
 			}
 			break;
 		default:
-			if (Phase > 1) break;
-			char t = wParam;
-			if (std::regex_search(std::string{ t }, std::regex("[A-Z]"))) {
-				size_t i = 0;
-				for (; input[i] != '\0'; i++) {}
-				if (i < 10) {
-					input[i] = t;
-					input[i + 1] = '\0';
+			switch (Phase)
+			{
+			case NONE:
+				break;
+			case TITLE:
+				break;
+			case PLAY:
+				t = wParam;
+				if (std::regex_search(std::string{ t }, std::regex("[A-Z]"))) {
+					size_t i = 0;
+					for (; input[i] != '\0'; i++) {}
+					if (i < 10) {
+						input[i] = t;
+						input[i + 1] = '\0';
+					}
 				}
+				break;
+			case RESULT:
+				break;
+			default:
+				break;
 			}
 			break;
 		}
@@ -423,6 +479,13 @@ void Init(HWND hWnd)
 	SelectObject(g_hMdcMsg, g_hbmpMsg);
 	GetObject(g_hbmpMsg, sizeof(g_BitmapMsg), &g_BitmapMsg);
 
+	g_hbmpSign = (HBITMAP)LoadImage(nullptr, CString("data\\sign.bmp"),
+		IMAGE_BITMAP, 0, 0,
+		LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+	g_hMdcSign = CreateCompatibleDC(hdc);
+	SelectObject(g_hMdcSign, g_hbmpSign);
+	GetObject(g_hbmpSign, sizeof(g_BitmapSign), &g_BitmapSign);
+
 	// ダブルバッファを作成
 	RECT rc;
 	GetClientRect(hWnd, &rc);
@@ -444,6 +507,7 @@ void Init(HWND hWnd)
 	RECT recGauge = { 0, 0, g_BitmapGauge.bmWidth, g_BitmapGauge.bmHeight };
 	RECT recSpike = { 0, 0, g_BitmapSpike.bmWidth, g_BitmapSpike.bmHeight };
 	RECT recMsg = { 0, 0, g_BitmapMsg.bmWidth, g_BitmapMsg.bmHeight };
+	RECT recSign = { 0, 0, g_BitmapSign.bmWidth, g_BitmapSign.bmHeight };
 
 	Bgo = new Sample(g_hMdcBG, FALSE, recBG, 0, 0, 0, 0);
 
@@ -454,13 +518,27 @@ void Init(HWND hWnd)
 		0, 0, RGB(255, 255, 255)
 	);
 	Skull->SetSize(256, 256);
+
+	// タイトル画面用の表示
 	Msg = new Sample(g_hMdcMsg, TRUE, recMsg,
-		WINDOW_WIDTH * 4 / 10, WINDOW_HEIGHT * 1 / 10,
+		(WINDOW_WIDTH * 2 / 10) + 50, WINDOW_HEIGHT * 2 / 10,
 		0, 0
 	);
-	Msg->SetSize(256, 64);
+	Msg->SetSize(512, 256);
+	Msg->SetRect(RECT{ 0, 64, 128, 32 });
 	Msg->SetColor(RGB(255, 255, 255));
-	Msg->SetUse(false);
+	Msg->SetUse(true);
+
+	Sign = new Effect(
+		g_hMdcSign, TRUE, recSign,
+		WINDOW_WIDTH * 4 / 10, WINDOW_HEIGHT * 3 / 10,
+		0, 0
+	);
+	Sign->SetSize(256, 128);
+	Sign->SetColor(RGB(0, 0, 0));
+	ReducMot = new ReductionMotion(POINT{ 512, 256 });
+	Sign->SetMotion(ReducMot);
+
 
 	g_Bolt = new Bolt(
 		g_hMdcBolt, TRUE, recBolt,
@@ -506,7 +584,6 @@ void Init(HWND hWnd)
 			RGB(255, 255, 255)
 		);
 		Timer->SetSize(300, 32);
-		Timer->Start();
 	}
 	// 問題文の初期化
 	probrems[0] = "KIWI";
@@ -520,7 +597,7 @@ void Init(HWND hWnd)
 	probrems[8] = "STRAWBERRY";
 	probrems[9] = "GRAPEFRUIT";
 
-	Phase = 1;
+	Phase = GAME_PHASE::TITLE;
 }
 
 /**
@@ -537,20 +614,36 @@ bool CheckInput(int num)
 
 void Update()
 {
+	std::chrono::system_clock::time_point nowTime;
+	double elapsed;
 	switch (Phase)
 	{
-	case 1:	// ゲームプレイ
+	case GAME_PHASE::TITLE:
+		Sign->SetUse(true);
+		break;
+	case GAME_PHASE::LEVELDISP:
+		Sign->Update();
+		if (ReducMot->IsCompleted()) {
+			Phase = GAME_PHASE::PLAY;
+			Sign->SetUse(false);
+			Skull->SetUse(true);
+			Timer->Start();
+		}
+		break;
+	case GAME_PHASE::PLAY:
 		Play();
 		break;
-	case 2:
+	case GAME_PHASE::RESULT:
 		g_Bolt->Update();
 		SpikyEffect->Update();
-		//if (timeGetTime() - g_WaitStart >= 1500) {
-		//	if (Winner == 1) {
-		//		Skull->SetUse(false);
-		//	}
-		//	Msg->SetUse(true);
-		//}
+		nowTime = std::chrono::system_clock::now();
+		elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(nowTime - g_WaitStart).count();
+		if (elapsed >= 1500) {
+			if (Winner == 1) {
+				Skull->SetUse(false);
+			}
+			Msg->SetUse(true);
+		}
 		break;
 	default:
 		break;
@@ -560,20 +653,25 @@ void Update()
 void Draw(HDC hdc)
 {
 	Bgo->Draw(hdc, false);
-	Skull->Draw(hdc, TRUE);
-	ProbremStr->Draw(hdc, &probrems[probremNum]);
-	InputStr->Draw(hdc, &probrems[probremNum], input);
-	Hp->Draw(hdc);
-	Timer->Draw(hdc);
-	g_Bolt->Draw(hdc);
-	SpikyEffect->Draw(hdc);
 
 	switch (Phase)
 	{
-	case 1:
-		break;
-	case 2:
+	case GAME_PHASE::TITLE:
 		Msg->Draw(hdc, TRUE);
+		break;
+	case GAME_PHASE::LEVELDISP:
+		Sign->Draw(hdc);
+		break;
+	case GAME_PHASE::RESULT:
+		Msg->Draw(hdc, TRUE);
+	case GAME_PHASE::PLAY:
+		Skull->Draw(hdc, TRUE);
+		ProbremStr->Draw(hdc, &probrems[probremNum]);
+		InputStr->Draw(hdc, &probrems[probremNum], input);
+		Hp->Draw(hdc);
+		Timer->Draw(hdc);
+		g_Bolt->Draw(hdc);
+		SpikyEffect->Draw(hdc);
 		break;
 	default:
 		break;
@@ -594,6 +692,7 @@ void Finalize()
 	DeleteObject(g_hbmpGauge);
 	DeleteObject(g_hbmpSpike);
 	DeleteObject(g_hbmpMsg);
+	DeleteObject(g_hbmpSign);
 	DeleteObject(g_hBitmap);
 
 	// 作成したメモリーデバイスコンテキストを開放する
@@ -605,19 +704,26 @@ void Finalize()
 	DeleteDC(g_hMdcGauge);
 	DeleteDC(g_hMdcSpike);
 	DeleteDC(g_hMdcMsg);
+	DeleteDC(g_hMdcSign);
 	DeleteDC(g_hMdcBitmap);
 
 	SAFE_DELETE(Bgo);
 	SAFE_DELETE(Skull);
 	SAFE_DELETE(Msg);
+	SAFE_DELETE(Sign);
 	SAFE_DELETE(Hp);
 	SAFE_DELETE(Timer);
 	SAFE_DELETE(ImpactMot);
 	SAFE_DELETE(BoltMot);
+	SAFE_DELETE(ReducMot);
 	SAFE_DELETE(SpikyEffect);
 	SAFE_DELETE(g_Bolt);
 	SAFE_DELETE(ProbremStr);
 	SAFE_DELETE(InputStr);
+}
+
+void Title()
+{
 }
 
 void Play()
@@ -631,7 +737,7 @@ void Play()
 		Hp->UpdateHP(-1);
 		SpikyEffect->Start();
 		if (Hp->GetHP() <= 0) {
-			Phase = 2;
+			Phase = GAME_PHASE::RESULT;
 			PrepareMessage(2);
 		}
 		else {
@@ -645,11 +751,17 @@ void Play()
 
 void PrepareMessage(int winner)
 {
+	Msg->SetPosition(WINDOW_WIDTH * 4 / 10, WINDOW_HEIGHT * 1 / 10);
+	Msg->SetSize(256, 64);
 	if (winner == 1) {
 		Msg->SetRect(RECT{ 0, 0, 128, 32 });
 	}
 	else {
 		Msg->SetRect(RECT{ 0, 32, 128, 32 });
 	}
-	//g_WaitStart = timeGetTime();
+	g_WaitStart = std::chrono::system_clock::now();
+}
+
+void ResetInput() {
+	memset(input, 0, sizeof(input));
 }

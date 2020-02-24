@@ -23,6 +23,15 @@ Effect::~Effect()
     SAFE_DELETE(motion);
 }
 
+void Effect::Start()
+{
+    SetUse(true);
+    SetRenderingFlag(true);
+    if (motion) {
+        motion->Start();
+    }
+}
+
 void Effect::Update()
 {
     if (!used) return;

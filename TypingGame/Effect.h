@@ -18,6 +18,7 @@ public:
 	void SetRenderingFlag(bool flg) { onRendering = flg; }
 	bool GetRenderingFlag() const { return onRendering; }
 
+	virtual void Start();
 	virtual void Update() override;
 	void SetMotion(EffectMotion*);
 	virtual void Draw(HDC hdc);

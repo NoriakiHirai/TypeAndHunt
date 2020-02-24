@@ -40,6 +40,9 @@ public:
 		size.x = w;
 		size.y = h;
 	}
+
+	POINT GetPosition();
+
 	virtual void Move(float movementX, float movementY);
 
 	// アップデート

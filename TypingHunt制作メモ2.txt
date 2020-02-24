@@ -1,0 +1,29 @@
+# 画面表示オブジェクト一覧
+Bgo
+Skull
+Msg
+Sign
+ProbremStr
+InputStr
+
+
+# 初期化方法
+## Msg
+	Msg = new Sample(g_hMdcMsg, TRUE, recMsg,
+		(WINDOW_WIDTH * 2 / 10) + 50, WINDOW_HEIGHT * 2 / 10,
+		0, 0
+	);
+	Msg->SetSize(512, 256);
+	Msg->SetRect(RECT{ 0, 64, 128, 32 });
+	
+	
+## Sign
+	Sign = new Effect(
+		g_hMdcSign, TRUE, recSign,
+		WINDOW_WIDTH * 4 / 10, WINDOW_HEIGHT * 3 / 10,
+		0, 0
+	);
+	Sign->SetSize(256, 128);
+	Sign->SetColor(RGB(0, 0, 0));
+	ReducMot = new ReductionMotion(POINT{ 512, 256 });
+	Sign->SetMotion(ReducMot);

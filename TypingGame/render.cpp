@@ -20,6 +20,11 @@ void Object::Init() {
     positionX = positionY = speedX = speedY = 0.f;
 }
 
+POINT Object::GetPosition()
+{
+	return POINT{ (int)positionX, (int)positionY };
+}
+
 void Object::Move(float movementX, float movementY)
 {
     positionX += movementX;
