@@ -464,7 +464,7 @@ void Init(HWND hWnd)
 	GetObject(g_hbmpBolt, sizeof(g_BitmapBolt), &g_BitmapBolt);
 
 	// 骸骨
-	g_hbmpSkull = (HBITMAP)LoadImage(nullptr, CString("data\\bone.bmp"),
+	g_hbmpSkull = (HBITMAP)LoadImage(nullptr, CString("data\\bomb.bmp"),
 		IMAGE_BITMAP, 0, 0,
 		LR_LOADFROMFILE | LR_CREATEDIBSECTION);
 	g_hMdcSkull = CreateCompatibleDC(hdc);
@@ -478,7 +478,7 @@ void Init(HWND hWnd)
 	SelectObject(g_hMdcSkull2, g_hbmpSkull2);
 	GetObject(g_hbmpSkull2, sizeof(g_BitmapSkull2), &g_BitmapSkull2);
 
-	g_hbmpSkull3 = (HBITMAP)LoadImage(nullptr, CString("data\\bone.bmp"),
+	g_hbmpSkull3 = (HBITMAP)LoadImage(nullptr, CString("data\\akuma.bmp"),
 		IMAGE_BITMAP, 0, 0,
 		LR_LOADFROMFILE | LR_CREATEDIBSECTION);
 	g_hMdcSkull3 = CreateCompatibleDC(hdc);
