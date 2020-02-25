@@ -14,6 +14,7 @@
 #include <string>
 #include <strstream>
 #include <chrono>
+#include <vector>
 #include "render.h"
 #include "utility.h"
 #include "Font.h"
@@ -48,11 +49,19 @@ WCHAR szTitle[MAX_LOADSTRING];                  // タイトル バーのテキ�
 WCHAR szWindowClass[MAX_LOADSTRING];            // メイン ウィンドウ クラス名
 
 //文字列描画用配列
-std::string probrems[100];
+std::vector<std::string> currentProbremSet;
+std::string probrems[10];
+std::string probrems2[10];
+std::string probrems3[10];
 char input[61];
 
 // 問題の番号
 int probremNum = 0;
+const int PROBREM_MAX = 10;
+const int HP_MIN = 0;
+
+const float SIGN_INIT_POS_X = WINDOW_WIDTH * 4 / 10;
+const float SIGN_INIT_POS_Y = WINDOW_HEIGHT * 3 / 10;
 
 // 背景
 HBITMAP g_hbmpBG;	// ビットマップオブジェクト
@@ -77,6 +86,14 @@ BITMAP  g_BitmapBolt; // ビットマップの情報
 HBITMAP	g_hbmpSkull;
 HDC		g_hMdcSkull;
 BITMAP  g_BitmapSkull;
+
+HBITMAP	g_hbmpSkull2;
+HDC		g_hMdcSkull2;
+BITMAP  g_BitmapSkull2;
+
+HBITMAP	g_hbmpSkull3;
+HDC		g_hMdcSkull3;
+BITMAP  g_BitmapSkull3;
 
 // ゲージ
 HBITMAP	g_hbmpGauge;
@@ -119,6 +136,7 @@ HDC		g_hMdcBitmap;	// バックバッファ用メモリーDC
 
 // ゲームの進捗
 GAME_PHASE Phase;
+int level = 1;
 int Winner;
 std::chrono::system_clock::time_point g_WaitStart;
 
@@ -137,6 +155,8 @@ void Title();
 void Play();
 void PrepareMessage(int winner);
 void ResetInput();
+void PrepareNextLevel();
+void GameEnd();
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -317,7 +337,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					g_Bolt->Start();
 					// インプット文字列の初期化
 					ResetInput();
-					if (probremNum == 9) {
+					if (probremNum == PROBREM_MAX - 1) {
 						Phase = GAME_PHASE::RESULT;
 						PrepareMessage(1);
 					}
@@ -328,21 +348,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				}
 				break;
 			case RESULT:
-				// タイトル画面に戻る準備
-				Msg->SetPosition((WINDOW_WIDTH * 2 / 10) + 50, WINDOW_HEIGHT * 2 / 10);
-				Msg->SetSize(512, 256);
-				Msg->SetRect(RECT{ 0, 64, 128,32 });
-				
-				Skull->SetUse(false);
-				ProbremStr->SetUse(false);
-				InputStr->SetUse(false);
-				Sign->SetPosition(WINDOW_WIDTH * 4 / 10, WINDOW_HEIGHT * 3 / 10);
-				Hp->ResetHP();
-
-				probremNum = 0;
-				ResetInput();
-
-				Phase = GAME_PHASE::TITLE;
+				++level;
+				if (level > 3) {
+					GameEnd();
+					Phase = GAME_PHASE::TITLE;
+					Msg->SetUse(true);
+				}
+				else {
+					Phase = GAME_PHASE::LEVELDISP;
+					Msg->SetUse(false);
+				}
+				PrepareNextLevel();
 				break;
 			default:
 				break;
@@ -455,6 +471,19 @@ void Init(HWND hWnd)
 	SelectObject(g_hMdcSkull, g_hbmpSkull);
 	GetObject(g_hbmpSkull, sizeof(g_BitmapSkull), &g_BitmapSkull);
 
+	g_hbmpSkull2 = (HBITMAP)LoadImage(nullptr, CString("data\\bone.bmp"),
+		IMAGE_BITMAP, 0, 0,
+		LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+	g_hMdcSkull2 = CreateCompatibleDC(hdc);
+	SelectObject(g_hMdcSkull2, g_hbmpSkull2);
+	GetObject(g_hbmpSkull2, sizeof(g_BitmapSkull2), &g_BitmapSkull2);
+
+	g_hbmpSkull3 = (HBITMAP)LoadImage(nullptr, CString("data\\bone.bmp"),
+		IMAGE_BITMAP, 0, 0,
+		LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+	g_hMdcSkull3 = CreateCompatibleDC(hdc);
+	SelectObject(g_hMdcSkull3, g_hbmpSkull3);
+	GetObject(g_hbmpSkull3, sizeof(g_BitmapSkull3), &g_BitmapSkull3);
 	// ゲージ
 	g_hbmpGauge = (HBITMAP)LoadImage(nullptr, CString("data\\gauge.bmp"),
 		IMAGE_BITMAP, 0, 0,
@@ -531,9 +560,10 @@ void Init(HWND hWnd)
 
 	Sign = new Effect(
 		g_hMdcSign, TRUE, recSign,
-		WINDOW_WIDTH * 4 / 10, WINDOW_HEIGHT * 3 / 10,
+		SIGN_INIT_POS_X, SIGN_INIT_POS_Y,
 		0, 0
 	);
+
 	Sign->SetSize(256, 128);
 	Sign->SetColor(RGB(0, 0, 0));
 	ReducMot = new ReductionMotion(POINT{ 512, 256 });
@@ -585,6 +615,7 @@ void Init(HWND hWnd)
 		);
 		Timer->SetSize(300, 32);
 	}
+
 	// 問題文の初期化
 	probrems[0] = "KIWI";
 	probrems[1] = "GRAPE";
@@ -597,6 +628,32 @@ void Init(HWND hWnd)
 	probrems[8] = "STRAWBERRY";
 	probrems[9] = "GRAPEFRUIT";
 
+	probrems2[0] = "NAPOLEON";
+	probrems2[1] = "SOCRATES";
+	probrems2[2] = "AUGUSTUS";
+	probrems2[3] = "ALEXANDER";
+	probrems2[4] = "CLEOPATRA";
+	probrems2[5] = "ELIZABETH";
+	probrems2[6] = "ARISTOTLE";
+	probrems2[7] = "BEETHOVEN";
+	probrems2[8] = "EKATERINA";
+	probrems2[9] = "DOSTOEVSKY";
+
+	probrems3[0] = "VIRUS";
+	probrems3[1] = "ASTHMA";
+	probrems3[2] = "VACCINE";
+	probrems3[3] = "ALLERGY";
+	probrems3[4] = "MEDICINE";
+	probrems3[5] = "HEADACHE";
+	probrems3[6] = "FRACTURE";
+	probrems3[7] = "PNEUMONIA";
+	probrems3[8] = "ARTHRITIS";
+	probrems3[9] = "ANESTHESIA";
+
+	for (auto i = 0; i < PROBREM_MAX; ++i) {
+		currentProbremSet.push_back(probrems[i]);
+	}
+
 	Phase = GAME_PHASE::TITLE;
 }
 
@@ -606,8 +663,8 @@ void Init(HWND hWnd)
 bool CheckInput(int num)
 {
 	// 入力文字列と問題の文字列を比較する
-	for (auto i = 0; probrems[probremNum][i] != '\0'; ++i) {
-		if (input[i] != probrems[probremNum][i]) return false;
+	for (auto i = 0; currentProbremSet[probremNum][i] != '\0'; ++i) {
+		if (input[i] != currentProbremSet[probremNum][i]) return false;
 	}
 	return true;
 }
@@ -666,8 +723,8 @@ void Draw(HDC hdc)
 		Msg->Draw(hdc, TRUE);
 	case GAME_PHASE::PLAY:
 		Skull->Draw(hdc, TRUE);
-		ProbremStr->Draw(hdc, &probrems[probremNum]);
-		InputStr->Draw(hdc, &probrems[probremNum], input);
+		ProbremStr->Draw(hdc, &currentProbremSet[probremNum]);
+		InputStr->Draw(hdc, &currentProbremSet[probremNum], input);
 		Hp->Draw(hdc);
 		Timer->Draw(hdc);
 		g_Bolt->Draw(hdc);
@@ -689,6 +746,8 @@ void Finalize()
 	DeleteObject(g_hbmpRedString);
 	DeleteObject(g_hbmpBolt);
 	DeleteObject(g_hbmpSkull);
+	DeleteObject(g_hbmpSkull2);
+	DeleteObject(g_hbmpSkull3);
 	DeleteObject(g_hbmpGauge);
 	DeleteObject(g_hbmpSpike);
 	DeleteObject(g_hbmpMsg);
@@ -701,6 +760,8 @@ void Finalize()
 	DeleteDC(g_hMdcRedString);
 	DeleteDC(g_hMdcBolt);
 	DeleteDC(g_hMdcSkull);
+	DeleteDC(g_hMdcSkull2);
+	DeleteDC(g_hMdcSkull3);
 	DeleteDC(g_hMdcGauge);
 	DeleteDC(g_hMdcSpike);
 	DeleteDC(g_hMdcMsg);
@@ -736,7 +797,7 @@ void Play()
 		// プレイヤーはダメージを受ける
 		Hp->UpdateHP(-1);
 		SpikyEffect->Start();
-		if (Hp->GetHP() <= 0) {
+		if (Hp->GetHP() <= HP_MIN) {
 			Phase = GAME_PHASE::RESULT;
 			PrepareMessage(2);
 		}
@@ -764,4 +825,77 @@ void PrepareMessage(int winner)
 
 void ResetInput() {
 	memset(input, 0, sizeof(input));
+}
+
+void PrepareNextLevel()
+{
+	// 問題集初期化
+	probremNum = 0;
+	if (currentProbremSet.size() > 0) {
+		currentProbremSet.erase(
+			currentProbremSet.begin(),
+			currentProbremSet.end()
+		);
+	}
+	RECT recSkull;
+	Sign->SetPosition(SIGN_INIT_POS_X, SIGN_INIT_POS_Y);
+	switch (level)
+	{
+	case 1:
+		// レベル表示の切り替え
+		Sign->SetRect(RECT{ 0, 224, 128, 62 });
+		Sign->Start();
+		for (auto i = 0; i < 10; ++i) {
+			currentProbremSet.push_back(probrems[i]);
+		}
+		// 敵キャラ表示の切り替え
+		Skull->SetHMDC(g_hMdcSkull);
+		recSkull = { 0, 0, g_BitmapSkull.bmWidth, g_BitmapSkull.bmHeight };
+		Skull->SetRect(recSkull);
+		break;
+	case 2:
+		Sign->SetRect(RECT{ 0, 286, 128, 62 });
+		Sign->Start();
+		for (auto i = 0; i < 10; ++i) {
+			currentProbremSet.push_back(probrems2[i]);
+		}
+
+		Skull->SetHMDC(g_hMdcSkull2);
+		recSkull = { 0, 0, g_BitmapSkull2.bmWidth, g_BitmapSkull2.bmHeight };
+		Skull->SetRect(recSkull);
+		break;
+	case 3:
+		Sign->SetRect(RECT{ 0, 348, 128, 62 });
+		Sign->Start();
+		for (auto i = 0; i < 10; ++i) {
+			currentProbremSet.push_back(probrems3[i]);
+		}
+
+		Skull->SetHMDC(g_hMdcSkull3);
+		recSkull = { 0, 0, g_BitmapSkull3.bmWidth, g_BitmapSkull3.bmHeight };
+		Skull->SetRect(recSkull);
+		break;
+	default:
+		break;
+	}
+}
+
+void GameEnd()
+{
+	// タイトル画面に戻る準備
+	Msg->SetPosition((WINDOW_WIDTH * 2 / 10) + 50, WINDOW_HEIGHT * 2 / 10);
+	Msg->SetSize(512, 256);
+	Msg->SetRect(RECT{ 0, 64, 128,32 });
+
+	Skull->SetUse(false);
+	ProbremStr->SetUse(false);
+	InputStr->SetUse(false);
+	Sign->SetPosition(WINDOW_WIDTH * 4 / 10, WINDOW_HEIGHT * 3 / 10);
+	Hp->ResetHP();
+
+	probremNum = 0;
+	ResetInput();
+
+	Phase = GAME_PHASE::TITLE;
+	level = 1;
 }

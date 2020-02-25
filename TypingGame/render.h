@@ -40,6 +40,7 @@ public:
 		size.x = w;
 		size.y = h;
 	}
+	void SetHMDC(HDC mdc) { hMdc = mdc; }
 
 	POINT GetPosition();
 
