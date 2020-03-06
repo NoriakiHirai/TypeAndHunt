@@ -34,6 +34,9 @@
 #define WINDOW_HEIGHT   768
 #define MAX_LOADSTRING 100
 
+const int GAUGE_WIDTH = 352;
+const int GAUGE_HEIGHT = 52;
+
 enum GAME_PHASE
 {
 	NONE = 0,
@@ -60,8 +63,8 @@ int probremNum = 0;
 const int PROBREM_MAX = 10;
 const int HP_MIN = 0;
 
-const float SIGN_INIT_POS_X = WINDOW_WIDTH * 4 / 10;
-const float SIGN_INIT_POS_Y = WINDOW_HEIGHT * 3 / 10;
+const float SIGN_INIT_POS_X = WINDOW_WIDTH / 2.f - 64.f;
+const float SIGN_INIT_POS_Y = WINDOW_HEIGHT / 2.f - 32.f;
 
 // 背景
 HBITMAP g_hbmpBG;	// ビットマップオブジェクト
@@ -558,17 +561,19 @@ void Init(HWND hWnd)
 	Msg->SetColor(RGB(255, 255, 255));
 	Msg->SetUse(true);
 
+	POINT size{ 256, 128 };
+	float initPosX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
+	float initPosY = WINDOW_HEIGHT / 2.f - (size.y / 2.f) - 32.f;
 	Sign = new Effect(
 		g_hMdcSign, TRUE, recSign,
-		SIGN_INIT_POS_X, SIGN_INIT_POS_Y,
+		initPosX, initPosY,
 		0, 0
 	);
 
-	Sign->SetSize(256, 128);
+	Sign->SetSize(size.x, size.y);
 	Sign->SetColor(RGB(0, 0, 0));
 	ReducMot = new ReductionMotion(POINT{ 512, 256 });
 	Sign->SetMotion(ReducMot);
-
 
 	g_Bolt = new Bolt(
 		g_hMdcBolt, TRUE, recBolt,
@@ -589,31 +594,33 @@ void Init(HWND hWnd)
 	SpikyEffect->SetMotion(ImpactMot);
 
 	{
-		int posX = skullPosX + 64;
+		int posX = skullPosX - 48;
 		int posY = skullPosY + (256 + 50);
 
 		ProbremStr = new Font(g_hMdcString, TRUE, recFont, posX, posY, 0, 0);
 		ProbremStr->SetFontBackGround(g_hMdcGauge);
+		ProbremStr->SetSize(GAUGE_WIDTH, GAUGE_HEIGHT);
 
 		posY += 74;
 		InputStr = new Font(g_hMdcString, TRUE, recFont, posX, posY, 0, 0);
 		InputStr->SetFontBackGround(g_hMdcGauge);
 		InputStr->SetFontRed(g_hMdcRedString);
+		InputStr->SetSize(GAUGE_WIDTH, GAUGE_HEIGHT);
 
-		posX = skullPosX;
+		//posX = skullPosX;
 		posY += 74;
 		Hp = new HP(g_hMdcGauge, FALSE, recGauge,
 			posX, posY, 0, 0,
 			RGB(255, 255, 255)
 		);
-		Hp->SetSize(300, 32);
+		Hp->SetSize(GAUGE_WIDTH, GAUGE_HEIGHT - 20);
 
 		posY += 52;
 		Timer = new Time(g_hMdcGauge, FALSE, recGauge,
 			posX, posY, 0, 0,
 			RGB(255, 255, 255)
 		);
-		Timer->SetSize(300, 32);
+		Timer->SetSize(GAUGE_WIDTH, GAUGE_HEIGHT - 20);
 	}
 
 	// 問題文の初期化
