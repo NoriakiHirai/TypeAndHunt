@@ -56,15 +56,19 @@ std::vector<std::string> currentProbremSet;
 std::string probrems[10];
 std::string probrems2[10];
 std::string probrems3[10];
+std::string probrems4[10];
+std::string probrems5[10];
+std::string probremsExtra[100];
 char input[61];
 
 // 問題の番号
 int probremNum = 0;
-const int PROBREM_MAX = 10;
+const int PROBREM_MAX = 1;
 const int HP_MIN = 0;
+const int INPUT_MAX = 20;
 
-const float SIGN_INIT_POS_X = WINDOW_WIDTH / 2.f - 64.f;
-const float SIGN_INIT_POS_Y = WINDOW_HEIGHT / 2.f - 32.f;
+const float SIGN_INIT_POS_X = 384.f;
+const float SIGN_INIT_POS_Y = 286.f;
 
 // 背景
 HBITMAP g_hbmpBG;	// ビットマップオブジェクト
@@ -85,18 +89,30 @@ HBITMAP	g_hbmpBolt; // ビットマップオブジェクト
 HDC		g_hMdcBolt; // メモリーデバイスコンテキスト
 BITMAP  g_BitmapBolt; // ビットマップの情報
 
-// 骸骨
-HBITMAP	g_hbmpSkull;
-HDC		g_hMdcSkull;
-BITMAP  g_BitmapSkull;
+// モンスター
+HBITMAP	g_hbmpMonster;
+HDC		g_hMdcMonster;
+BITMAP  g_BitmapMonster;
 
-HBITMAP	g_hbmpSkull2;
-HDC		g_hMdcSkull2;
-BITMAP  g_BitmapSkull2;
+HBITMAP	g_hbmpMonster2;
+HDC		g_hMdcMonster2;
+BITMAP  g_BitmapMonster2;
 
-HBITMAP	g_hbmpSkull3;
-HDC		g_hMdcSkull3;
-BITMAP  g_BitmapSkull3;
+HBITMAP	g_hbmpMonster3;
+HDC		g_hMdcMonster3;
+BITMAP  g_BitmapMonster3;
+
+HBITMAP	g_hbmpMonster4;
+HDC		g_hMdcMonster4;
+BITMAP  g_BitmapMonster4;
+
+HBITMAP	g_hbmpMonster5;
+HDC		g_hMdcMonster5;
+BITMAP  g_BitmapMonster5;
+
+HBITMAP	g_hbmpMonsterEx;
+HDC		g_hMdcMonsterEx;
+BITMAP  g_BitmapMonsterEx;
 
 // ゲージ
 HBITMAP	g_hbmpGauge;
@@ -118,7 +134,7 @@ HDC		g_hMdcSign;
 BITMAP  g_BitmapSign;
 
 Sample* Bgo;
-Sample* Skull;
+Sample* Monster;
 Sample* Msg;
 Effect* Sign;
 Bolt* g_Bolt;
@@ -352,7 +368,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 			case RESULT:
 				++level;
-				if (level > 3) {
+				if (level > 5) {
 					GameEnd();
 					Phase = GAME_PHASE::TITLE;
 					Msg->SetUse(true);
@@ -379,7 +395,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				if (std::regex_search(std::string{ t }, std::regex("[A-Z]"))) {
 					size_t i = 0;
 					for (; input[i] != '\0'; i++) {}
-					if (i < 10) {
+					if (i < INPUT_MAX) {
 						input[i] = t;
 						input[i + 1] = '\0';
 					}
@@ -466,27 +482,49 @@ void Init(HWND hWnd)
 	SelectObject(g_hMdcBolt, g_hbmpBolt);
 	GetObject(g_hbmpBolt, sizeof(g_BitmapBolt), &g_BitmapBolt);
 
-	// 骸骨
-	g_hbmpSkull = (HBITMAP)LoadImage(nullptr, CString("data\\bomb.bmp"),
+	// モンスター
+	g_hbmpMonster = (HBITMAP)LoadImage(nullptr, CString("data\\bomb.bmp"),
 		IMAGE_BITMAP, 0, 0,
 		LR_LOADFROMFILE | LR_CREATEDIBSECTION);
-	g_hMdcSkull = CreateCompatibleDC(hdc);
-	SelectObject(g_hMdcSkull, g_hbmpSkull);
-	GetObject(g_hbmpSkull, sizeof(g_BitmapSkull), &g_BitmapSkull);
+	g_hMdcMonster = CreateCompatibleDC(hdc);
+	SelectObject(g_hMdcMonster, g_hbmpMonster);
+	GetObject(g_hbmpMonster, sizeof(g_BitmapMonster), &g_BitmapMonster);
 
-	g_hbmpSkull2 = (HBITMAP)LoadImage(nullptr, CString("data\\bone.bmp"),
+	g_hbmpMonster2 = (HBITMAP)LoadImage(nullptr, CString("data\\ahriman.bmp"),
 		IMAGE_BITMAP, 0, 0,
 		LR_LOADFROMFILE | LR_CREATEDIBSECTION);
-	g_hMdcSkull2 = CreateCompatibleDC(hdc);
-	SelectObject(g_hMdcSkull2, g_hbmpSkull2);
-	GetObject(g_hbmpSkull2, sizeof(g_BitmapSkull2), &g_BitmapSkull2);
+	g_hMdcMonster2 = CreateCompatibleDC(hdc);
+	SelectObject(g_hMdcMonster2, g_hbmpMonster2);
+	GetObject(g_hbmpMonster2, sizeof(g_BitmapMonster2), &g_BitmapMonster2);
 
-	g_hbmpSkull3 = (HBITMAP)LoadImage(nullptr, CString("data\\akuma.bmp"),
+	g_hbmpMonster3 = (HBITMAP)LoadImage(nullptr, CString("data\\bone.bmp"),
 		IMAGE_BITMAP, 0, 0,
 		LR_LOADFROMFILE | LR_CREATEDIBSECTION);
-	g_hMdcSkull3 = CreateCompatibleDC(hdc);
-	SelectObject(g_hMdcSkull3, g_hbmpSkull3);
-	GetObject(g_hbmpSkull3, sizeof(g_BitmapSkull3), &g_BitmapSkull3);
+	g_hMdcMonster3 = CreateCompatibleDC(hdc);
+	SelectObject(g_hMdcMonster3, g_hbmpMonster3);
+	GetObject(g_hbmpMonster3, sizeof(g_BitmapMonster3), &g_BitmapMonster3);
+
+	g_hbmpMonster4 = (HBITMAP)LoadImage(nullptr, CString("data\\bone-b.bmp"),
+		IMAGE_BITMAP, 0, 0,
+		LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+	g_hMdcMonster4 = CreateCompatibleDC(hdc);
+	SelectObject(g_hMdcMonster4, g_hbmpMonster4);
+	GetObject(g_hbmpMonster4, sizeof(g_BitmapMonster4), &g_BitmapMonster4);
+
+	g_hbmpMonster5 = (HBITMAP)LoadImage(nullptr, CString("data\\akuma.bmp"),
+		IMAGE_BITMAP, 0, 0,
+		LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+	g_hMdcMonster5 = CreateCompatibleDC(hdc);
+	SelectObject(g_hMdcMonster5, g_hbmpMonster5);
+	GetObject(g_hbmpMonster5, sizeof(g_BitmapMonster5), &g_BitmapMonster5);
+
+	g_hbmpMonsterEx = (HBITMAP)LoadImage(nullptr, CString("data\\grendel.bmp"),
+		IMAGE_BITMAP, 0, 0,
+		LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+	g_hMdcMonsterEx = CreateCompatibleDC(hdc);
+	SelectObject(g_hMdcMonsterEx, g_hbmpMonsterEx);
+	GetObject(g_hbmpMonsterEx, sizeof(g_BitmapMonsterEx), &g_BitmapMonsterEx);
+
 	// ゲージ
 	g_hbmpGauge = (HBITMAP)LoadImage(nullptr, CString("data\\gauge.bmp"),
 		IMAGE_BITMAP, 0, 0,
@@ -535,7 +573,7 @@ void Init(HWND hWnd)
 	RECT recBG = { 0, 0, g_BitmapBG.bmWidth, g_BitmapBG.bmHeight };
 	RECT recFont = { 0, 0, g_BitmapString.bmWidth, g_BitmapString.bmHeight };
 	RECT recBolt = { 0, 0, g_BitmapBolt.bmWidth, g_BitmapBolt.bmHeight };
-	RECT recSkull = { 0, 0, g_BitmapSkull.bmWidth, g_BitmapSkull.bmHeight };
+	RECT recMonster = { 0, 0, g_BitmapMonster.bmWidth, g_BitmapMonster.bmHeight };
 	RECT recGauge = { 0, 0, g_BitmapGauge.bmWidth, g_BitmapGauge.bmHeight };
 	RECT recSpike = { 0, 0, g_BitmapSpike.bmWidth, g_BitmapSpike.bmHeight };
 	RECT recMsg = { 0, 0, g_BitmapMsg.bmWidth, g_BitmapMsg.bmHeight };
@@ -543,13 +581,13 @@ void Init(HWND hWnd)
 
 	Bgo = new Sample(g_hMdcBG, FALSE, recBG, 0, 0, 0, 0);
 
-	int skullPosX = WINDOW_WIDTH * 4 / 10;
-	int skullPosY = WINDOW_HEIGHT * 2 / 10;
-	Skull = new Sample(g_hMdcSkull, TRUE, recSkull,
-		skullPosX, skullPosY,
+	int MonsterPosX = WINDOW_WIDTH * 4 / 10;
+	int MonsterPosY = WINDOW_HEIGHT * 2 / 10;
+	Monster = new Sample(g_hMdcMonster, TRUE, recMonster,
+		MonsterPosX, MonsterPosY,
 		0, 0, RGB(255, 255, 255)
 	);
-	Skull->SetSize(256, 256);
+	Monster->SetSize(256, 256);
 
 	// タイトル画面用の表示
 	Msg = new Sample(g_hMdcMsg, TRUE, recMsg,
@@ -594,8 +632,8 @@ void Init(HWND hWnd)
 	SpikyEffect->SetMotion(ImpactMot);
 
 	{
-		int posX = skullPosX - 48;
-		int posY = skullPosY + (256 + 50);
+		int posX = MonsterPosX - 48;
+		int posY = MonsterPosY + (256 + 50);
 
 		ProbremStr = new Font(g_hMdcString, TRUE, recFont, posX, posY, 0, 0);
 		ProbremStr->SetFontBackGround(g_hMdcGauge);
@@ -646,16 +684,38 @@ void Init(HWND hWnd)
 	probrems2[8] = "EKATERINA";
 	probrems2[9] = "DOSTOEVSKY";
 
-	probrems3[0] = "VIRUS";
-	probrems3[1] = "ASTHMA";
-	probrems3[2] = "VACCINE";
-	probrems3[3] = "ALLERGY";
-	probrems3[4] = "MEDICINE";
-	probrems3[5] = "HEADACHE";
-	probrems3[6] = "FRACTURE";
-	probrems3[7] = "PNEUMONIA";
-	probrems3[8] = "ARTHRITIS";
-	probrems3[9] = "ANESTHESIA";
+	probrems3[0] = "SOCCER";
+	probrems3[1] = "ARCHERY";
+	probrems3[2] = "CRICKET";
+	probrems3[3] = "BASEBALL";
+	probrems3[4] = "BADMINTON";
+	probrems3[5] = "WRESTLING";
+	probrems3[6] = "TAEKWONDO";
+	probrems3[7] = "BASKETBALL";
+	probrems3[8] = "TRAMPOLINE";
+	probrems3[9] = "WEIGHTLIFTING";
+
+	probrems4[0] = "VIRUS";
+	probrems4[1] = "ASTHMA";
+	probrems4[2] = "VACCINE";
+	probrems4[3] = "ALLERGY";
+	probrems4[4] = "MEDICINE";
+	probrems4[5] = "HEADACHE";
+	probrems4[6] = "FRACTURE";
+	probrems4[7] = "PNEUMONIA";
+	probrems4[8] = "ARTHRITIS";
+	probrems4[9] = "ANESTHESIA";
+
+	probrems5[0] = "JAPAN";
+	probrems5[1] = "ZIMBABWE";
+	probrems5[2] = "UZBEKISTAN";
+	probrems5[3] = "LUXEMBOURG";
+	probrems5[4] = "MADAGASCAR";
+	probrems5[5] = "SWITZERLAND";
+	probrems5[6] = "SWITZERLAND";
+	probrems5[7] = "NETHERLANDS";
+	probrems5[8] = "TURKMENISTAN";
+	probrems5[9] = "LIECHTENSTEIN";
 
 	for (auto i = 0; i < PROBREM_MAX; ++i) {
 		currentProbremSet.push_back(probrems[i]);
@@ -690,7 +750,7 @@ void Update()
 		if (ReducMot->IsCompleted()) {
 			Phase = GAME_PHASE::PLAY;
 			Sign->SetUse(false);
-			Skull->SetUse(true);
+			Monster->SetUse(true);
 			Timer->Start();
 		}
 		break;
@@ -704,7 +764,7 @@ void Update()
 		elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(nowTime - g_WaitStart).count();
 		if (elapsed >= 1500) {
 			if (Winner == 1) {
-				Skull->SetUse(false);
+				Monster->SetUse(false);
 			}
 			Msg->SetUse(true);
 		}
@@ -729,7 +789,7 @@ void Draw(HDC hdc)
 	case GAME_PHASE::RESULT:
 		Msg->Draw(hdc, TRUE);
 	case GAME_PHASE::PLAY:
-		Skull->Draw(hdc, TRUE);
+		Monster->Draw(hdc, TRUE);
 		ProbremStr->Draw(hdc, &currentProbremSet[probremNum]);
 		InputStr->Draw(hdc, &currentProbremSet[probremNum], input);
 		Hp->Draw(hdc);
@@ -752,9 +812,9 @@ void Finalize()
 	DeleteObject(g_hbmpString);
 	DeleteObject(g_hbmpRedString);
 	DeleteObject(g_hbmpBolt);
-	DeleteObject(g_hbmpSkull);
-	DeleteObject(g_hbmpSkull2);
-	DeleteObject(g_hbmpSkull3);
+	DeleteObject(g_hbmpMonster);
+	DeleteObject(g_hbmpMonster2);
+	DeleteObject(g_hbmpMonster3);
 	DeleteObject(g_hbmpGauge);
 	DeleteObject(g_hbmpSpike);
 	DeleteObject(g_hbmpMsg);
@@ -766,9 +826,9 @@ void Finalize()
 	DeleteDC(g_hMdcString);
 	DeleteDC(g_hMdcRedString);
 	DeleteDC(g_hMdcBolt);
-	DeleteDC(g_hMdcSkull);
-	DeleteDC(g_hMdcSkull2);
-	DeleteDC(g_hMdcSkull3);
+	DeleteDC(g_hMdcMonster);
+	DeleteDC(g_hMdcMonster2);
+	DeleteDC(g_hMdcMonster3);
 	DeleteDC(g_hMdcGauge);
 	DeleteDC(g_hMdcSpike);
 	DeleteDC(g_hMdcMsg);
@@ -776,7 +836,7 @@ void Finalize()
 	DeleteDC(g_hMdcBitmap);
 
 	SAFE_DELETE(Bgo);
-	SAFE_DELETE(Skull);
+	SAFE_DELETE(Monster);
 	SAFE_DELETE(Msg);
 	SAFE_DELETE(Sign);
 	SAFE_DELETE(Hp);
@@ -844,7 +904,9 @@ void PrepareNextLevel()
 			currentProbremSet.end()
 		);
 	}
-	RECT recSkull;
+	// HP初期化
+	Hp->UpdateHP(5);
+	RECT recMonster;
 	Sign->SetPosition(SIGN_INIT_POS_X, SIGN_INIT_POS_Y);
 	switch (level)
 	{
@@ -856,9 +918,9 @@ void PrepareNextLevel()
 			currentProbremSet.push_back(probrems[i]);
 		}
 		// 敵キャラ表示の切り替え
-		Skull->SetHMDC(g_hMdcSkull);
-		recSkull = { 0, 0, g_BitmapSkull.bmWidth, g_BitmapSkull.bmHeight };
-		Skull->SetRect(recSkull);
+		Monster->SetHMDC(g_hMdcMonster);
+		recMonster = { 0, 0, g_BitmapMonster.bmWidth, g_BitmapMonster.bmHeight };
+		Monster->SetRect(recMonster);
 		break;
 	case 2:
 		Sign->SetRect(RECT{ 0, 286, 128, 62 });
@@ -867,9 +929,9 @@ void PrepareNextLevel()
 			currentProbremSet.push_back(probrems2[i]);
 		}
 
-		Skull->SetHMDC(g_hMdcSkull2);
-		recSkull = { 0, 0, g_BitmapSkull2.bmWidth, g_BitmapSkull2.bmHeight };
-		Skull->SetRect(recSkull);
+		Monster->SetHMDC(g_hMdcMonster2);
+		recMonster = { 0, 0, g_BitmapMonster2.bmWidth, g_BitmapMonster2.bmHeight };
+		Monster->SetRect(recMonster);
 		break;
 	case 3:
 		Sign->SetRect(RECT{ 0, 348, 128, 62 });
@@ -878,9 +940,31 @@ void PrepareNextLevel()
 			currentProbremSet.push_back(probrems3[i]);
 		}
 
-		Skull->SetHMDC(g_hMdcSkull3);
-		recSkull = { 0, 0, g_BitmapSkull3.bmWidth, g_BitmapSkull3.bmHeight };
-		Skull->SetRect(recSkull);
+		Monster->SetHMDC(g_hMdcMonster3);
+		recMonster = { 0, 0, g_BitmapMonster3.bmWidth, g_BitmapMonster3.bmHeight };
+		Monster->SetRect(recMonster);
+		break;
+	case 4:
+		Sign->SetRect(RECT{ 0, 412, 128, 62 });
+		Sign->Start();
+		for (auto i = 0; i < 10; ++i) {
+			currentProbremSet.push_back(probrems4[i]);
+		}
+
+		Monster->SetHMDC(g_hMdcMonster4);
+		recMonster = { 0, 0, g_BitmapMonster4.bmWidth, g_BitmapMonster4.bmHeight };
+		Monster->SetRect(recMonster);
+		break;
+	case 5:
+		Sign->SetRect(RECT{ 0, 474, 128, 62 });
+		Sign->Start();
+		for (auto i = 0; i < 10; ++i) {
+			currentProbremSet.push_back(probrems5[i]);
+		}
+
+		Monster->SetHMDC(g_hMdcMonster5);
+		recMonster = { 0, 0, g_BitmapMonster5.bmWidth, g_BitmapMonster5.bmHeight };
+		Monster->SetRect(recMonster);
 		break;
 	default:
 		break;
@@ -894,7 +978,7 @@ void GameEnd()
 	Msg->SetSize(512, 256);
 	Msg->SetRect(RECT{ 0, 64, 128,32 });
 
-	Skull->SetUse(false);
+	Monster->SetUse(false);
 	ProbremStr->SetUse(false);
 	InputStr->SetUse(false);
 	Sign->SetPosition(WINDOW_WIDTH * 4 / 10, WINDOW_HEIGHT * 3 / 10);
