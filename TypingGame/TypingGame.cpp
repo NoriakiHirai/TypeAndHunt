@@ -815,6 +815,9 @@ void Finalize()
 	DeleteObject(g_hbmpMonster);
 	DeleteObject(g_hbmpMonster2);
 	DeleteObject(g_hbmpMonster3);
+	DeleteObject(g_hbmpMonster4);
+	DeleteObject(g_hbmpMonster5);
+	DeleteObject(g_hbmpMonsterEx);
 	DeleteObject(g_hbmpGauge);
 	DeleteObject(g_hbmpSpike);
 	DeleteObject(g_hbmpMsg);
@@ -829,6 +832,9 @@ void Finalize()
 	DeleteDC(g_hMdcMonster);
 	DeleteDC(g_hMdcMonster2);
 	DeleteDC(g_hMdcMonster3);
+	DeleteDC(g_hMdcMonster4);
+	DeleteDC(g_hMdcMonster5);
+	DeleteDC(g_hMdcMonsterEx);
 	DeleteDC(g_hMdcGauge);
 	DeleteDC(g_hMdcSpike);
 	DeleteDC(g_hMdcMsg);
