@@ -15,6 +15,7 @@
 #include <strstream>
 #include <chrono>
 #include <vector>
+#include <cmath>
 #include "render.h"
 #include "utility.h"
 #include "Font.h"
@@ -44,6 +45,7 @@ enum GAME_PHASE
 	LEVELDISP,
 	PLAY,
 	RESULT,
+	CLEAR,
 };
 
 // グローバル変数:
@@ -159,6 +161,9 @@ int level = 1;
 int Winner;
 std::chrono::system_clock::time_point g_WaitStart;
 
+int Select;
+int Mode;
+
 // このコード モジュールに含まれる関数の宣言を転送します:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -172,9 +177,13 @@ void Finalize();
 
 void Title();
 void Play();
+void PlayForLevelMode();
+void PlayFor1ooMode();
 void PrepareMessage(int winner);
 void ResetInput();
 void PrepareNextLevel();
+void Prepare100Mode();
+void GameClear();
 void GameEnd();
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -338,6 +347,25 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			break;
 		}
+		case VK_UP:
+			switch (Phase)
+			{
+			case TITLE:
+				--Select;
+				Select %= 2;
+				Select = std::abs(Select);
+				break;
+			}
+			break;
+		case VK_DOWN:
+			switch (Phase)
+			{
+			case TITLE:
+				++Select;
+				Select %= 2;
+				break;
+			}
+			break;
 		case VK_RETURN:
 			switch (Phase)
 			{
@@ -346,8 +374,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case TITLE:
 				Phase = GAME_PHASE::LEVELDISP;
 				Msg->SetUse(false);
+				// for test
+				switch (Select)
+				{
+				case 0:
+					Mode = 0;
+					Sign->SetRect(RECT{ 0, 224, 128, 62 });
+					break;
+				case 1:
+					Mode = 1;
+					Prepare100Mode();
+					break;
+				default:
+					break;
+				}
 				Sign->Start();
-				Sign->SetRect(RECT{ 0, 224, 128, 62 });
 				break;
 			case LEVELDISP:
 				break;
@@ -356,28 +397,47 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					g_Bolt->Start();
 					// インプット文字列の初期化
 					ResetInput();
-					if (probremNum == PROBREM_MAX - 1) {
-						Phase = GAME_PHASE::RESULT;
-						PrepareMessage(1);
-					}
-					else {
-						++probremNum;
-						Timer->Start();
+					switch (Mode)
+					{
+					case 0:
+						if (probremNum == PROBREM_MAX - 1) {
+							Phase = GAME_PHASE::RESULT;
+							PrepareMessage(1);
+						}
+						else {
+							++probremNum;
+							Timer->Start();
+						}
+						break;
+					case 1:
+						if (probremNum == 99) {
+							Phase = GAME_PHASE::RESULT;
+							PrepareMessage(1);
+						}
+						else {
+							++probremNum;
+							Timer->Start();
+						}
+						break;
+					default:
+						break;
 					}
 				}
 				break;
 			case RESULT:
 				++level;
-				if (level > 5) {
-					GameEnd();
-					Phase = GAME_PHASE::TITLE;
-					Msg->SetUse(true);
+				if (level > 1) {
+					Phase = GAME_PHASE::CLEAR;
+					GameClear();
 				}
 				else {
 					Phase = GAME_PHASE::LEVELDISP;
-					Msg->SetUse(false);
+					PrepareNextLevel();
 				}
-				PrepareNextLevel();
+				break;
+			case CLEAR:
+				Phase = GAME_PHASE::TITLE;
+				GameEnd();
 				break;
 			default:
 				break;
@@ -445,6 +505,8 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
 void Init(HWND hWnd)
 {
+	Select = 0;
+	Mode = 0;
 	// DC取得
 	HDC hdc = GetDC(hWnd);
 
@@ -717,6 +779,107 @@ void Init(HWND hWnd)
 	probrems5[8] = "TURKMENISTAN";
 	probrems5[9] = "LIECHTENSTEIN";
 
+	probremsExtra[0] = "PROSPECT";
+	probremsExtra[1] = "QUANTITY";
+	probremsExtra[2] = "RACE";
+	probremsExtra[3] = "REHEARSAL";
+	probremsExtra[4] = "RELATION";
+	probremsExtra[5] = "RENTAL";
+	probremsExtra[6] = "RESPECT";
+	probremsExtra[7] = "RESPONSIBILITY";
+	probremsExtra[8] = "RIDE";
+	probremsExtra[9] = "ROAD";
+	probremsExtra[10] = "SALARY";
+	probremsExtra[11] = "SAND";
+	probremsExtra[12] = "SCENERY";
+	probremsExtra[13] = "SEAT";
+	probremsExtra[14] = "SEMINAR";
+	probremsExtra[15] = "SEPTEMBER";
+	probremsExtra[16] = "SHIPMENT";
+	probremsExtra[17] = "SHORTAGE";
+	probremsExtra[18] = "SINGING";
+	probremsExtra[19] = "SNOW";
+	probremsExtra[20] = "SPECIALIST";
+	probremsExtra[21] = "SPRING";
+	probremsExtra[22] = "STAIR";
+	probremsExtra[23] = "STANDARD";
+	probremsExtra[24] = "STAR";
+	probremsExtra[25] = "STEAK";
+	probremsExtra[26] = "STRATEGY";
+	probremsExtra[27] = "STUDYING";
+	probremsExtra[28] = "SUBJECT";
+	probremsExtra[29] = "SUBMISSION";
+	probremsExtra[30] = "SUGGESTION";
+	probremsExtra[31] = "SURROUNDINGS";
+	probremsExtra[32] = "TALENT";
+	probremsExtra[33] = "TALK";
+	probremsExtra[34] = "TARGET";
+	probremsExtra[35] = "TELEPHONE";
+	probremsExtra[36] = "TEST";
+	probremsExtra[37] = "THEATER";
+	probremsExtra[38] = "THEME";
+	probremsExtra[39] = "TICKET";
+	probremsExtra[40] = "TIN";
+	probremsExtra[41] = "TOAST";
+	probremsExtra[42] = "TOUCH";
+	probremsExtra[43] = "TRAFFIC";
+	probremsExtra[44] = "TREND";
+	probremsExtra[45] = "TYPHOON";
+	probremsExtra[46] = "USER";
+	probremsExtra[47] = "VIDEO";
+	probremsExtra[48] = "VISITOR";
+	probremsExtra[49] = "VOCABULARY";
+	probremsExtra[50] = "VOLUME";
+	probremsExtra[51] = "WEDNESDAY";
+	probremsExtra[52] = "WEIGHT";
+	probremsExtra[53] = "WHILE";
+	probremsExtra[54] = "WINTER";
+	probremsExtra[55] = "WOOD";
+	probremsExtra[56] = "WORKPLACE";
+	probremsExtra[57] = "WRAPPING";
+	probremsExtra[58] = "YAWN";
+	probremsExtra[59] = "ACADEMY";
+	probremsExtra[60] = "ACCURACY";
+	probremsExtra[61] = "ACHE";
+	probremsExtra[62] = "ACTING";
+	probremsExtra[63] = "ACTOR";
+	probremsExtra[64] = "ACTRESS";
+	probremsExtra[65] = "ADDITION";
+	probremsExtra[66] = "ADMIRATION";
+	probremsExtra[67] = "ADVENTURE";
+	probremsExtra[68] = "ADVERTISING";
+	probremsExtra[69] = "AGENCY";
+	probremsExtra[70] = "AGENT";
+	probremsExtra[71] = "AGREEMENT";
+	probremsExtra[72] = "AID";
+	probremsExtra[73] = "ALPHABET";
+	probremsExtra[74] = "AMBASSADOR";
+	probremsExtra[75] = "ANCESTOR";
+	probremsExtra[76] = "ANNIVERSARY";
+	probremsExtra[77] = "APOLOGY";
+	probremsExtra[78] = "APPEAL";
+	probremsExtra[79] = "APPLICATION";
+	probremsExtra[80] = "ARRIVAL";
+	probremsExtra[81] = "ASIA";
+	probremsExtra[82] = "ASSEMBLY";
+	probremsExtra[83] = "ASSIGNMENT";
+	probremsExtra[84] = "ATHLETE";
+	probremsExtra[85] = "ATTACK";
+	probremsExtra[86] = "AUSTRIA";
+	probremsExtra[87] = "BACKGROUND";
+	probremsExtra[88] = "BACKYARD";
+	probremsExtra[89] = "BALLOON";
+	probremsExtra[90] = "BEACH";
+	probremsExtra[91] = "BEDTIME";
+	probremsExtra[92] = "BENCH";
+	probremsExtra[93] = "BICYCLIST";
+	probremsExtra[94] = "BIKE";
+	probremsExtra[95] = "DEPARTMENT";
+	probremsExtra[96] = "DEPENDENCY";
+	probremsExtra[97] = "DEPTH";
+	probremsExtra[98] = "DESCRIPTION";
+	probremsExtra[99] = "DESIGN";
+
 	for (auto i = 0; i < PROBREM_MAX; ++i) {
 		currentProbremSet.push_back(probrems[i]);
 	}
@@ -796,6 +959,9 @@ void Draw(HDC hdc)
 		Timer->Draw(hdc);
 		g_Bolt->Draw(hdc);
 		SpikyEffect->Draw(hdc);
+		break;
+	case GAME_PHASE::CLEAR:
+		Sign->Draw(hdc);
 		break;
 	default:
 		break;
@@ -883,6 +1049,33 @@ void Play()
 	}
 }
 
+void PlayForLevelMode()
+{
+	g_Bolt->Update();
+	SpikyEffect->Update();
+
+	// タイマーが0になっていないかチェック
+	if (Timer->ResetCheck()) {
+		// プレイヤーはダメージを受ける
+		Hp->UpdateHP(-1);
+		SpikyEffect->Start();
+		if (Hp->GetHP() <= HP_MIN) {
+			Phase = GAME_PHASE::RESULT;
+			PrepareMessage(2);
+		}
+		else {
+			Timer->Start();
+		}
+	}
+	else {
+		Timer->Update();
+	}
+}
+
+void PlayFor1ooMode()
+{
+}
+
 void PrepareMessage(int winner)
 {
 	Msg->SetPosition(WINDOW_WIDTH * 4 / 10, WINDOW_HEIGHT * 1 / 10);
@@ -912,8 +1105,9 @@ void PrepareNextLevel()
 	}
 	// HP初期化
 	Hp->UpdateHP(5);
-	RECT recMonster;
+	Msg->SetUse(false);
 	Sign->SetPosition(SIGN_INIT_POS_X, SIGN_INIT_POS_Y);
+	RECT recMonster;
 	switch (level)
 	{
 	case 1:
@@ -977,22 +1171,63 @@ void PrepareNextLevel()
 	}
 }
 
-void GameEnd()
+void Prepare100Mode()
 {
-	// タイトル画面に戻る準備
-	Msg->SetPosition((WINDOW_WIDTH * 2 / 10) + 50, WINDOW_HEIGHT * 2 / 10);
-	Msg->SetSize(512, 256);
-	Msg->SetRect(RECT{ 0, 64, 128,32 });
+	// 問題集初期化
+	probremNum = 0;
+	if (currentProbremSet.size() > 0) {
+		currentProbremSet.erase(
+			currentProbremSet.begin(),
+			currentProbremSet.end()
+		);
+	}
+	RECT recMonster;
+	// レベル表示の切り替え
+	Sign->SetRect(RECT{ 0, 536, 128, 62 });
+	for (auto i = 0; i < 100; ++i) {
+		currentProbremSet.push_back(probremsExtra[i]);
+	}
+	// 敵キャラ表示の切り替え
+	Monster->SetHMDC(g_hMdcMonsterEx);
+	recMonster = { 0, 0, g_BitmapMonsterEx.bmWidth, g_BitmapMonsterEx.bmHeight };
+	Monster->SetRect(recMonster);
+}
+
+void GameClear()
+{
+	Msg->SetUse(false);
 
 	Monster->SetUse(false);
 	ProbremStr->SetUse(false);
 	InputStr->SetUse(false);
-	Sign->SetPosition(WINDOW_WIDTH * 4 / 10, WINDOW_HEIGHT * 3 / 10);
+	Sign->SetUse(true);
+	POINT size{ 756, 128 };
+	float posX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
+	float posY = WINDOW_HEIGHT / 2.f - (size.y / 2.f) - 50.f;
+	Sign->SetPosition(posX, posY);
+	Sign->SetSize(size.x, size.y);
+	Sign->SetRect(RECT{ 0, 198, 128, 22 });
+}
+
+void GameEnd()
+{
+	// タイトル画面に戻る準備
+	Msg->SetUse(true);
+	Msg->SetPosition((WINDOW_WIDTH * 2 / 10) + 50, WINDOW_HEIGHT * 2 / 10);
+	Msg->SetSize(512, 256);
+	Msg->SetRect(RECT{ 0, 64, 128,32 });
+
+	POINT size{ 256, 128 };
+	float initPosX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
+	float initPosY = WINDOW_HEIGHT / 2.f - (size.y / 2.f) - 32.f;
+	Sign->SetUse(false);
+	Sign->SetPosition(initPosX, initPosY);
+	Sign->SetSize(size.x, size.y);
+
 	Hp->ResetHP();
 
 	probremNum = 0;
 	ResetInput();
 
-	Phase = GAME_PHASE::TITLE;
 	level = 1;
 }

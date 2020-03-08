@@ -41,3 +41,6 @@ HPバー
 
 # 改修案
 - 100問耐久モードを作る
+
+# 進捗
+3/8 WndProc > VK_RETURN > RESULT まで実装
