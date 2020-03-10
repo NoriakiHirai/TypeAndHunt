@@ -65,7 +65,8 @@ char input[61];
 
 // 問題の番号
 int probremNum = 0;
-const int PROBREM_MAX = 1;
+const int PROBREM_MAX = 10;
+const int LEVEL_MAX = 5;
 const int HP_MIN = 0;
 const int INPUT_MAX = 20;
 
@@ -135,6 +136,10 @@ HBITMAP	g_hbmpSign;
 HDC		g_hMdcSign;
 BITMAP  g_BitmapSign;
 
+HBITMAP	g_hbmpSelect;
+HDC		g_hMdcSelect;
+BITMAP  g_BitmapSelect;
+
 Sample* Bgo;
 Sample* Monster;
 Sample* Msg;
@@ -145,6 +150,9 @@ HP* Hp;
 Time* Timer;
 Font* ProbremStr;
 Font* InputStr;
+Sample* Selection1;
+Sample* Selection2;
+Sample* SelectFrame;
 
 // エフェクトモーション
 BoltMotion* BoltMot;
@@ -176,13 +184,15 @@ bool CheckInput(int num);
 void Finalize();
 
 void Title();
+void SetUpSelection();
 void Play();
 void PlayForLevelMode();
 void PlayFor1ooMode();
 void PrepareMessage(int winner);
 void ResetInput();
 void PrepareNextLevel();
-void Prepare100Mode();
+void SetUpNormalMode();
+void SetUp100Mode();
 void GameClear();
 void GameEnd();
 
@@ -352,6 +362,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			{
 			case TITLE:
 				--Select;
+				//Select = (Select < 0 ? 0 : Select);
 				Select %= 2;
 				Select = std::abs(Select);
 				break;
@@ -362,6 +373,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			{
 			case TITLE:
 				++Select;
+				//Select = (Select > 1 ? 1 : Select);
 				Select %= 2;
 				break;
 			}
@@ -379,11 +391,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				{
 				case 0:
 					Mode = 0;
-					Sign->SetRect(RECT{ 0, 224, 128, 62 });
+					SetUpNormalMode();
 					break;
 				case 1:
 					Mode = 1;
-					Prepare100Mode();
+					SetUp100Mode();
 					break;
 				default:
 					break;
@@ -425,14 +437,25 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				}
 				break;
 			case RESULT:
-				++level;
-				if (level > 1) {
+				switch (Mode)
+				{
+				case 0:
+					++level;
+					if (level > LEVEL_MAX) {
+						Phase = GAME_PHASE::CLEAR;
+						GameClear();
+					}
+					else {
+						Phase = GAME_PHASE::LEVELDISP;
+						PrepareNextLevel();
+					}
+					break;
+				case 1:
 					Phase = GAME_PHASE::CLEAR;
 					GameClear();
-				}
-				else {
-					Phase = GAME_PHASE::LEVELDISP;
-					PrepareNextLevel();
+					break;
+				default:
+					break;
 				}
 				break;
 			case CLEAR:
@@ -618,6 +641,13 @@ void Init(HWND hWnd)
 	SelectObject(g_hMdcSign, g_hbmpSign);
 	GetObject(g_hbmpSign, sizeof(g_BitmapSign), &g_BitmapSign);
 
+	g_hbmpSelect = (HBITMAP)LoadImage(nullptr, CString("data\\select.bmp"),
+		IMAGE_BITMAP, 0, 0,
+		LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+	g_hMdcSelect = CreateCompatibleDC(hdc);
+	SelectObject(g_hMdcSelect, g_hbmpSelect);
+	GetObject(g_hbmpSelect, sizeof(g_BitmapSelect), &g_BitmapSelect);
+
 	// ダブルバッファを作成
 	RECT rc;
 	GetClientRect(hWnd, &rc);
@@ -674,6 +704,8 @@ void Init(HWND hWnd)
 	Sign->SetColor(RGB(0, 0, 0));
 	ReducMot = new ReductionMotion(POINT{ 512, 256 });
 	Sign->SetMotion(ReducMot);
+
+	SetUpSelection();
 
 	g_Bolt = new Bolt(
 		g_hMdcBolt, TRUE, recBolt,
@@ -907,6 +939,19 @@ void Update()
 	{
 	case GAME_PHASE::TITLE:
 		Sign->SetUse(true);
+		// 選択枠の移動
+		if (Select == 0) {
+			SelectFrame->SetPosition(
+				(WINDOW_WIDTH / 2.f) - 64.f,
+				WINDOW_HEIGHT * 6.f / 10.f
+			);
+		}
+		else {
+			SelectFrame->SetPosition(
+				(WINDOW_WIDTH / 2.f) - 64.f,
+				(WINDOW_HEIGHT * 6.f / 10.f) + 96.f
+			);
+		}
 		break;
 	case GAME_PHASE::LEVELDISP:
 		Sign->Update();
@@ -945,6 +990,9 @@ void Draw(HDC hdc)
 	{
 	case GAME_PHASE::TITLE:
 		Msg->Draw(hdc, TRUE);
+		Selection1->Draw(hdc, TRUE);
+		Selection2->Draw(hdc, TRUE);
+		SelectFrame->Draw(hdc, TRUE);
 		break;
 	case GAME_PHASE::LEVELDISP:
 		Sign->Draw(hdc);
@@ -988,6 +1036,7 @@ void Finalize()
 	DeleteObject(g_hbmpSpike);
 	DeleteObject(g_hbmpMsg);
 	DeleteObject(g_hbmpSign);
+	DeleteObject(g_hbmpSelect);
 	DeleteObject(g_hBitmap);
 
 	// 作成したメモリーデバイスコンテキストを開放する
@@ -1005,6 +1054,7 @@ void Finalize()
 	DeleteDC(g_hMdcSpike);
 	DeleteDC(g_hMdcMsg);
 	DeleteDC(g_hMdcSign);
+	DeleteDC(g_hMdcSelect);
 	DeleteDC(g_hMdcBitmap);
 
 	SAFE_DELETE(Bgo);
@@ -1020,6 +1070,46 @@ void Finalize()
 	SAFE_DELETE(g_Bolt);
 	SAFE_DELETE(ProbremStr);
 	SAFE_DELETE(InputStr);
+	SAFE_DELETE(Selection1);
+	SAFE_DELETE(Selection2);
+	SAFE_DELETE(SelectFrame);
+}
+
+void SetUpSelection() {
+	RECT recSelect = { 0, 0, g_BitmapSelect.bmWidth, g_BitmapSelect.bmHeight };
+	POINT size{ 128.f, 64.f };
+	float initPosX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
+	float initPosY = WINDOW_HEIGHT * 6.f / 10.f;
+	Selection1 = new Sample(
+		g_hMdcSelect, TRUE, recSelect,
+		initPosX, initPosY,
+		0, 0
+	);
+	Selection1->SetSize(size.x, size.y);
+	Selection1->SetRect(RECT{ 0, 0, 1024, 164 });
+	Selection1->SetColor(RGB(255, 255, 255));
+	Selection1->SetUse(true);
+
+	Selection2 = new Sample(
+		g_hMdcSelect, TRUE, recSelect,
+		initPosX, initPosY + (size.y * 3.f / 2.f),
+		0, 0
+	);
+	Selection2->SetSize(size.x, size.y);
+	Selection2->SetRect(RECT{ 0, 166, 1024, 147 });
+	Selection2->SetColor(RGB(255, 255, 255));
+	Selection2->SetUse(true);
+
+	SelectFrame = new Sample(
+		g_hMdcSelect, TRUE, recSelect,
+		initPosX, initPosY,
+		0, 0
+	);
+	SelectFrame->SetSize(size.x, size.y);
+	SelectFrame->SetRect(RECT{ 0, 313, 1024, 199 });
+	SelectFrame->SetColor(RGB(255, 255, 255));
+	SelectFrame->SetUse(true);
+
 }
 
 void Title()
@@ -1171,7 +1261,29 @@ void PrepareNextLevel()
 	}
 }
 
-void Prepare100Mode()
+void SetUpNormalMode()
+{
+	// 問題集初期化
+	probremNum = 0;
+	if (currentProbremSet.size() > 0) {
+		currentProbremSet.erase(
+			currentProbremSet.begin(),
+			currentProbremSet.end()
+		);
+	}
+	RECT recMonster;
+	// レベル表示の切り替え
+	Sign->SetRect(RECT{ 0, 224, 128, 62 });
+	for (auto i = 0; i < 10; ++i) {
+		currentProbremSet.push_back(probrems[i]);
+	}
+	// 敵キャラ表示の切り替え
+	Monster->SetHMDC(g_hMdcMonster);
+	recMonster = { 0, 0, g_BitmapMonster.bmWidth, g_BitmapMonster.bmHeight };
+	Monster->SetRect(recMonster);
+}
+
+void SetUp100Mode()
 {
 	// 問題集初期化
 	probremNum = 0;
