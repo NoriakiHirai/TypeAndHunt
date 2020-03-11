@@ -113,9 +113,9 @@ void Font::Draw(HDC hdc, std::string* probremStr, const char* inputStr)
 	int x, y;
 	HDC srcDest;
 	for (auto i = 0; inputStr[i] != '\0'; ++i) {
-		index = inputStr[i] - 64;
+		index = inputStr[i] - 48;
 		left = (8 * index) % 128;
-		top = 63 + (16 * ((8 * index) / 128));
+		top = 47 + (16 * ((8 * index) / 128));
 		width = 8;
 		height = 16;
 		RECT rect{ left, top, width, height };

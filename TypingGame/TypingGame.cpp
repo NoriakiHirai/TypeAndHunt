@@ -475,7 +475,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 			case PLAY:
 				t = wParam;
-				if (std::regex_search(std::string{ t }, std::regex("[A-Z]"))) {
+				if (std::regex_search(std::string{ t }, std::regex("[A-Z]")) ||
+					std::regex_search(std::string{ t }, std::regex("[0-9]")))
+				{
 					size_t i = 0;
 					for (; input[i] != '\0'; i++) {}
 					if (i < INPUT_MAX) {
