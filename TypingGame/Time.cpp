@@ -45,6 +45,8 @@ bool Time::ResetCheck()
 
 void Time::Draw(HDC hdc)
 {
+    if (!used) return;
+
     if (remainingTime < 0) remainingTime = 0;
     // ”wŒi
     TransparentBlt(

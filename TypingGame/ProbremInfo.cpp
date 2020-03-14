@@ -1,4 +1,9 @@
 #include "ProbremInfo.h"
+#include <string.h>
+#include <string>
+#include "Font.h"
+
+#pragma warning(disable:4996)
 
 ProbremInfo::ProbremInfo(HDC hdc, BOOL trs, RECT rec, float px, float py)
 {
@@ -10,30 +15,44 @@ ProbremInfo::ProbremInfo(HDC hdc, BOOL trs, RECT rec, float px, float py)
 
 void ProbremInfo::Draw(HDC hdc, int probremNum)
 {
-	unsigned int index = 0;
 	int left, top, width, height;
 	int x, y;
+	char outputStr[8] = {};
+	if (probremNum > 99) {
+		strcat(outputStr, "100");
+	}
+	else if (probremNum <= 99 && probremNum >= 10) {
+		outputStr[0] = ' ';
+		strcat(outputStr, std::to_string(probremNum).c_str());
+	}
+	else if (probremNum < 10 && probremNum >0 ) {
+		outputStr[0] = outputStr[1] = ' ';
+		outputStr[2] = char(probremNum + 48);
+	}
+	else {
+		outputStr[0] = outputStr[1] = ' ';
+		outputStr[2] = '0';
+	}
+	strcat(outputStr, "/100");
 	HDC srcDest;
-	for (auto i = 0; inputStr[i] != '\0'; ++i) {
-		index = inputStr[i] - 48;
+	int index;
+	for (auto i = 0; i < 7 ; ++i) {
+		index = outputStr[i] - 32;
+		if (index < 0) continue;
 		left = (8 * index) % 128;
-		top = 47 + (16 * ((8 * index) / 128));
+		top = 31 + (16 * ((8 * index) / 128));
 		width = 8;
 		height = 16;
 		RECT rect{ left, top, width, height };
 		x = (int)positionX + (FONT_WIDTH * i) + FONT_WIDTH;
 		y = (int)positionY;
-		if (probremStr->size() > i) {
-			if (inputStr[i] == (*probremStr)[i]) {
-				srcDest = hMdc;
-			}
-			else {
-				srcDest = hMdcRedFont;
-			}
-		}
-		else {
-			srcDest = hMdcRedFont;
-		}
-		DrawChar(x, y, rect, hdc, srcDest);
+		TransparentBlt(
+			hdc,
+			x, y,
+			FONT_WIDTH, FONT_HEIGHT,
+			hMdc,
+			rect.left, rect.top, rect.right, rect.bottom,
+			color
+		);
 	}
 }

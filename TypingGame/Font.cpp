@@ -22,6 +22,8 @@ Font::~Font()
 
 void Font::Draw(HDC hdc, std::string* str)
 {
+	if (!used) return;
+
 	// フォントのバックグラウンド
 	int bgOffsetY = (FONT_HEIGHT / 3);
 	TransparentBlt(
@@ -94,6 +96,8 @@ void Font::Draw(HDC hdc, const char* str)
 
 void Font::Draw(HDC hdc, std::string* probremStr, const char* inputStr)
 {
+	if (!used) return;
+
 	// フォントのバックグラウンド
 	int bgOffsetY = (FONT_HEIGHT / 3);
 	TransparentBlt(

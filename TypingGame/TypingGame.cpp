@@ -27,6 +27,7 @@
 #include "ReductionMotion.h"
 #include "Bolt.h"
 #include "Impact.h"
+#include "ProbremInfo.h"
 
 #pragma comment(lib, "winmm.lib")
 
@@ -65,9 +66,10 @@ char input[61];
 
 // 問題の番号
 int probremNum = 0;
-const int PROBREM_MAX = 10;
+const int PROBREM_MAX = 1;
+const int EX_STAGE_PROBREM_MAX = 99;
 const int LEVEL_MAX = 5;
-const int HP_MIN = 0;
+const int HP_MIN = 5;
 const int INPUT_MAX = 20;
 
 const float SIGN_INIT_POS_X = 384.f;
@@ -153,6 +155,7 @@ Font* InputStr;
 Sample* Selection1;
 Sample* Selection2;
 Sample* SelectFrame;
+ProbremInfo* ProbInfo;
 
 // エフェクトモーション
 BoltMotion* BoltMot;
@@ -183,17 +186,24 @@ void Draw(HDC hdc);
 bool CheckInput(int num);
 void Finalize();
 
-void Title();
-void SetUpSelection();
+void InitializeHDC(HWND hWnd);
+void InitailizeProbrem();
+void InitializeSelection();
+void SetUpSelection(RECT rect1, RECT rect2);
 void Play();
 void PlayForLevelMode();
 void PlayFor1ooMode();
-void PrepareMessage(int winner);
+void SetUpResult(int winner);
 void ResetInput();
-void PrepareNextLevel();
+void SetUpWinSelection();
+void SetUpLooseSelection();
+void SetUpStageSelection();
+void HideSelection();
+void ShowSelection();
+void SetUpNextLevel();
 void SetUpNormalMode();
 void SetUp100Mode();
-void GameClear();
+void SetUpGameClear();
 void GameEnd();
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -414,7 +424,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					case 0:
 						if (probremNum == PROBREM_MAX - 1) {
 							Phase = GAME_PHASE::RESULT;
-							PrepareMessage(1);
+							SetUpResult(1);
 						}
 						else {
 							++probremNum;
@@ -422,9 +432,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 						}
 						break;
 					case 1:
-						if (probremNum == 99) {
+						if (probremNum == EX_STAGE_PROBREM_MAX) {
 							Phase = GAME_PHASE::RESULT;
-							PrepareMessage(1);
+							SetUpResult(1);
 						}
 						else {
 							++probremNum;
@@ -437,22 +447,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				}
 				break;
 			case RESULT:
+				HideSelection();
 				switch (Mode)
 				{
 				case 0:
 					++level;
 					if (level > LEVEL_MAX) {
 						Phase = GAME_PHASE::CLEAR;
-						GameClear();
+						SetUpGameClear();
 					}
 					else {
 						Phase = GAME_PHASE::LEVELDISP;
-						PrepareNextLevel();
+						SetUpNextLevel();
 					}
 					break;
 				case 1:
 					Phase = GAME_PHASE::CLEAR;
-					GameClear();
+					SetUpGameClear();
 					break;
 				default:
 					break;
@@ -532,6 +543,317 @@ void Init(HWND hWnd)
 {
 	Select = 0;
 	Mode = 0;
+
+	InitializeHDC(hWnd);
+
+	// 背景やキャラクタなどの作成
+	RECT recBG = { 0, 0, g_BitmapBG.bmWidth, g_BitmapBG.bmHeight };
+	RECT recFont = { 0, 0, g_BitmapString.bmWidth, g_BitmapString.bmHeight };
+	RECT recBolt = { 0, 0, g_BitmapBolt.bmWidth, g_BitmapBolt.bmHeight };
+	RECT recMonster = { 0, 0, g_BitmapMonster.bmWidth, g_BitmapMonster.bmHeight };
+	RECT recGauge = { 0, 0, g_BitmapGauge.bmWidth, g_BitmapGauge.bmHeight };
+	RECT recSpike = { 0, 0, g_BitmapSpike.bmWidth, g_BitmapSpike.bmHeight };
+	RECT recMsg = { 0, 0, g_BitmapMsg.bmWidth, g_BitmapMsg.bmHeight };
+	RECT recSign = { 0, 0, g_BitmapSign.bmWidth, g_BitmapSign.bmHeight };
+
+	Bgo = new Sample(g_hMdcBG, FALSE, recBG, 0, 0, 0, 0);
+	
+	// モンスターの初期化
+	POINT mSize{ 256, 256 };
+	float MonsterPosX = WINDOW_WIDTH / 2.f - (mSize.x / 2.f);
+	float MonsterPosY = WINDOW_HEIGHT / 2.f - (mSize.y / 2.f) - 100.f;
+	Monster = new Sample(g_hMdcMonster, TRUE, recMonster,
+		MonsterPosX, MonsterPosY,
+		0, 0, RGB(255, 255, 255)
+	);
+	Monster->SetSize(mSize.x, mSize.y);
+
+	// タイトル画面用の表示
+	{
+		POINT size{ 512, 256 };
+		float initPosX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
+		float initPosY = WINDOW_HEIGHT / 2.f - (size.y / 2.f) - 64.f;
+		Msg = new Sample(g_hMdcMsg, TRUE, recMsg,
+			initPosX, initPosY,
+			//(WINDOW_WIDTH * 2 / 10) + 50, WINDOW_HEIGHT * 2 / 10,
+			0, 0
+		);
+		Msg->SetSize(size.x, size.y);
+		Msg->SetRect(RECT{ 0, 64, 128, 32 });
+		Msg->SetColor(RGB(255, 255, 255));
+		Msg->SetUse(true);
+	}
+
+	// 標識オブジェクトの初期化
+	{
+		POINT size{ 256, 128 };
+		float initPosX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
+		float initPosY = WINDOW_HEIGHT / 2.f - (size.y / 2.f) - 32.f;
+		Sign = new Effect(
+			g_hMdcSign, TRUE, recSign,
+			initPosX, initPosY,
+			0, 0
+		);
+		Sign->SetSize(size.x, size.y);
+		Sign->SetColor(RGB(0, 0, 0));
+		ReducMot = new ReductionMotion(POINT{ 512, 256 });
+		Sign->SetMotion(ReducMot);
+	}
+
+	InitializeSelection();
+
+	// エフェクトの初期化
+	{
+		POINT size{ 64, 64 };
+		float initPosX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
+		float initPosY = WINDOW_HEIGHT / 2.f - (size.y / 2.f) - 230.f;
+
+		g_Bolt = new Bolt(
+			g_hMdcBolt, TRUE, recBolt,
+			initPosX, initPosY,
+			//float(WINDOW_WIDTH / 2 - 10), float(WINDOW_HEIGHT * 1 / 10 + 40),
+			0, 0
+		);
+		g_Bolt->SetSize(size.x, size.y);
+		g_Bolt->SetColor(RGB(255, 255, 255));
+
+		BoltMot = new BoltMotion();
+		g_Bolt->SetMotion(BoltMot);
+	}
+
+	{
+		POINT size{ 256, 256 };
+		float initPosX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
+		float initPosY = WINDOW_HEIGHT / 2.f - (size.y / 2.f) + 50.f;
+		SpikyEffect = new Impact(g_hMdcSpike, TRUE, recSpike,
+			initPosX, initPosY, 0, 0);
+		SpikyEffect->SetSize(size.x, size.y);
+
+		ImpactMot = new ImpactMotion;
+		SpikyEffect->SetMotion(ImpactMot);
+	}
+
+	ProbInfo = new ProbremInfo(g_hMdcString, TRUE, recFont,
+		WINDOW_WIDTH * 8 / 10, WINDOW_HEIGHT * 1 / 10
+	);
+
+	// 問題文およびタイマー
+	{
+		int posX = MonsterPosX - 48;
+		int posY = MonsterPosY + (256 + 50);
+
+		ProbremStr = new Font(g_hMdcString, TRUE, recFont, posX, posY, 0, 0);
+		ProbremStr->SetFontBackGround(g_hMdcGauge);
+		ProbremStr->SetSize(GAUGE_WIDTH, GAUGE_HEIGHT);
+
+		posY += 74;
+		InputStr = new Font(g_hMdcString, TRUE, recFont, posX, posY, 0, 0);
+		InputStr->SetFontBackGround(g_hMdcGauge);
+		InputStr->SetFontRed(g_hMdcRedString);
+		InputStr->SetSize(GAUGE_WIDTH, GAUGE_HEIGHT);
+
+		//posX = skullPosX;
+		posY += 74;
+		Hp = new HP(g_hMdcGauge, FALSE, recGauge,
+			posX, posY, 0, 0,
+			RGB(255, 255, 255)
+		);
+		Hp->SetSize(GAUGE_WIDTH, GAUGE_HEIGHT - 20);
+
+		posY += 52;
+		Timer = new Time(g_hMdcGauge, FALSE, recGauge,
+			posX, posY, 0, 0,
+			RGB(255, 255, 255)
+		);
+		Timer->SetSize(GAUGE_WIDTH, GAUGE_HEIGHT - 20);
+	}
+
+	InitailizeProbrem();
+
+	Phase = GAME_PHASE::TITLE;
+}
+
+/**
+*	@param {num} 何番目の問題か
+*/
+bool CheckInput(int num)
+{
+	// 入力文字列と問題の文字列を比較する
+	for (auto i = 0; currentProbremSet[probremNum][i] != '\0'; ++i) {
+		if (input[i] != currentProbremSet[probremNum][i]) return false;
+	}
+	return true;
+}
+
+void Update()
+{
+	std::chrono::system_clock::time_point nowTime;
+	double elapsed;
+	switch (Phase)
+	{
+	case GAME_PHASE::TITLE:
+		Sign->SetUse(true);
+		// 選択枠の移動
+		if (Select == 0) {
+			SelectFrame->SetPosition(
+				(WINDOW_WIDTH / 2.f) - 64.f,
+				WINDOW_HEIGHT * 6.f / 10.f
+			);
+		}
+		else {
+			SelectFrame->SetPosition(
+				(WINDOW_WIDTH / 2.f) - 64.f,
+				(WINDOW_HEIGHT * 6.f / 10.f) + 96.f
+			);
+		}
+		break;
+	case GAME_PHASE::LEVELDISP:
+		Sign->Update();
+		if (ReducMot->IsCompleted()) {
+			Phase = GAME_PHASE::PLAY;
+			Sign->SetUse(false);
+			Monster->SetUse(true);
+			Timer->Start();
+		}
+		break;
+	case GAME_PHASE::PLAY:
+		Play();
+		break;
+	case GAME_PHASE::RESULT:
+		g_Bolt->Update();
+		SpikyEffect->Update();
+		nowTime = std::chrono::system_clock::now();
+		elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(nowTime - g_WaitStart).count();
+		if (elapsed >= 1500) {
+			// 1.5秒が過ぎたらHPなどを消して、選択肢を表示する
+			Msg->SetUse(true);
+			ProbremStr->SetUse(false);
+			InputStr->SetUse(false);
+			Hp->SetUse(FALSE);
+			Timer->SetUse(FALSE);
+			ShowSelection();
+			if (Winner == 1) {
+				Monster->SetUse(false);
+			}
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+void Draw(HDC hdc)
+{
+	Bgo->Draw(hdc, false);
+
+	switch (Phase)
+	{
+	case GAME_PHASE::TITLE:
+		Msg->Draw(hdc, TRUE);
+		Selection1->Draw(hdc, TRUE);
+		Selection2->Draw(hdc, TRUE);
+		SelectFrame->Draw(hdc, TRUE);
+		break;
+	case GAME_PHASE::LEVELDISP:
+		Sign->Draw(hdc);
+		break;
+	case GAME_PHASE::PLAY:
+		Monster->Draw(hdc, TRUE);
+		ProbremStr->Draw(hdc, &currentProbremSet[probremNum]);
+		InputStr->Draw(hdc, &currentProbremSet[probremNum], input);
+		Hp->Draw(hdc);
+		Timer->Draw(hdc);
+		g_Bolt->Draw(hdc);
+		SpikyEffect->Draw(hdc);
+		if (Mode == 1) {
+			ProbInfo->Draw(hdc, probremNum);
+		}
+		break;
+	case GAME_PHASE::RESULT:
+		Msg->Draw(hdc, TRUE);
+		Monster->Draw(hdc, TRUE);
+		g_Bolt->Draw(hdc);
+		SpikyEffect->Draw(hdc);
+		if (Mode == 1) {
+			ProbInfo->Draw(hdc, probremNum);
+		}
+		Selection1->Draw(hdc, TRUE);
+		Selection2->Draw(hdc, TRUE);
+		SelectFrame->Draw(hdc, TRUE);
+		ProbremStr->Draw(hdc, &currentProbremSet[probremNum]);
+		InputStr->Draw(hdc, &currentProbremSet[probremNum], input);
+		Hp->Draw(hdc);
+		Timer->Draw(hdc);
+		break;
+	case GAME_PHASE::CLEAR:
+		Sign->Draw(hdc);
+		break;
+	default:
+		break;
+	}
+}
+
+//===========================================================================
+// 資源の解放処理
+//===========================================================================
+void Finalize()
+{
+	// ビットマップオブジェクトを解放する
+	DeleteObject(g_hbmpBG);
+	DeleteObject(g_hbmpString);
+	DeleteObject(g_hbmpRedString);
+	DeleteObject(g_hbmpBolt);
+	DeleteObject(g_hbmpMonster);
+	DeleteObject(g_hbmpMonster2);
+	DeleteObject(g_hbmpMonster3);
+	DeleteObject(g_hbmpMonster4);
+	DeleteObject(g_hbmpMonster5);
+	DeleteObject(g_hbmpMonsterEx);
+	DeleteObject(g_hbmpGauge);
+	DeleteObject(g_hbmpSpike);
+	DeleteObject(g_hbmpMsg);
+	DeleteObject(g_hbmpSign);
+	DeleteObject(g_hbmpSelect);
+	DeleteObject(g_hBitmap);
+
+	// 作成したメモリーデバイスコンテキストを開放する
+	DeleteDC(g_hMdcBG);
+	DeleteDC(g_hMdcString);
+	DeleteDC(g_hMdcRedString);
+	DeleteDC(g_hMdcBolt);
+	DeleteDC(g_hMdcMonster);
+	DeleteDC(g_hMdcMonster2);
+	DeleteDC(g_hMdcMonster3);
+	DeleteDC(g_hMdcMonster4);
+	DeleteDC(g_hMdcMonster5);
+	DeleteDC(g_hMdcMonsterEx);
+	DeleteDC(g_hMdcGauge);
+	DeleteDC(g_hMdcSpike);
+	DeleteDC(g_hMdcMsg);
+	DeleteDC(g_hMdcSign);
+	DeleteDC(g_hMdcSelect);
+	DeleteDC(g_hMdcBitmap);
+
+	SAFE_DELETE(Bgo);
+	SAFE_DELETE(Monster);
+	SAFE_DELETE(Msg);
+	SAFE_DELETE(Sign);
+	SAFE_DELETE(Hp);
+	SAFE_DELETE(Timer);
+	SAFE_DELETE(ImpactMot);
+	SAFE_DELETE(BoltMot);
+	SAFE_DELETE(ReducMot);
+	SAFE_DELETE(SpikyEffect);
+	SAFE_DELETE(g_Bolt);
+	SAFE_DELETE(ProbremStr);
+	SAFE_DELETE(InputStr);
+	SAFE_DELETE(Selection1);
+	SAFE_DELETE(Selection2);
+	SAFE_DELETE(SelectFrame);
+}
+
+void InitializeHDC(HWND hWnd)
+{
 	// DC取得
 	HDC hdc = GetDC(hWnd);
 
@@ -662,101 +984,10 @@ void Init(HWND hWnd)
 
 	// DC返却
 	ReleaseDC(hWnd, hdc);
+}
 
-	// 背景やキャラクタなどの作成
-	RECT recBG = { 0, 0, g_BitmapBG.bmWidth, g_BitmapBG.bmHeight };
-	RECT recFont = { 0, 0, g_BitmapString.bmWidth, g_BitmapString.bmHeight };
-	RECT recBolt = { 0, 0, g_BitmapBolt.bmWidth, g_BitmapBolt.bmHeight };
-	RECT recMonster = { 0, 0, g_BitmapMonster.bmWidth, g_BitmapMonster.bmHeight };
-	RECT recGauge = { 0, 0, g_BitmapGauge.bmWidth, g_BitmapGauge.bmHeight };
-	RECT recSpike = { 0, 0, g_BitmapSpike.bmWidth, g_BitmapSpike.bmHeight };
-	RECT recMsg = { 0, 0, g_BitmapMsg.bmWidth, g_BitmapMsg.bmHeight };
-	RECT recSign = { 0, 0, g_BitmapSign.bmWidth, g_BitmapSign.bmHeight };
-
-	Bgo = new Sample(g_hMdcBG, FALSE, recBG, 0, 0, 0, 0);
-
-	int MonsterPosX = WINDOW_WIDTH * 4 / 10;
-	int MonsterPosY = WINDOW_HEIGHT * 2 / 10;
-	Monster = new Sample(g_hMdcMonster, TRUE, recMonster,
-		MonsterPosX, MonsterPosY,
-		0, 0, RGB(255, 255, 255)
-	);
-	Monster->SetSize(256, 256);
-
-	// タイトル画面用の表示
-	Msg = new Sample(g_hMdcMsg, TRUE, recMsg,
-		(WINDOW_WIDTH * 2 / 10) + 50, WINDOW_HEIGHT * 2 / 10,
-		0, 0
-	);
-	Msg->SetSize(512, 256);
-	Msg->SetRect(RECT{ 0, 64, 128, 32 });
-	Msg->SetColor(RGB(255, 255, 255));
-	Msg->SetUse(true);
-
-	POINT size{ 256, 128 };
-	float initPosX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
-	float initPosY = WINDOW_HEIGHT / 2.f - (size.y / 2.f) - 32.f;
-	Sign = new Effect(
-		g_hMdcSign, TRUE, recSign,
-		initPosX, initPosY,
-		0, 0
-	);
-
-	Sign->SetSize(size.x, size.y);
-	Sign->SetColor(RGB(0, 0, 0));
-	ReducMot = new ReductionMotion(POINT{ 512, 256 });
-	Sign->SetMotion(ReducMot);
-
-	SetUpSelection();
-
-	g_Bolt = new Bolt(
-		g_hMdcBolt, TRUE, recBolt,
-		float(WINDOW_WIDTH / 2 - 10), float(WINDOW_HEIGHT * 1 / 10 + 40),
-		0, 0
-	);
-	g_Bolt->SetSize(64, 64);
-	g_Bolt->SetColor(RGB(255, 255, 255));
-
-	BoltMot = new BoltMotion();
-	g_Bolt->SetMotion(BoltMot);
-
-	SpikyEffect = new Impact(g_hMdcSpike, TRUE, recSpike,
-		WINDOW_WIDTH / 2, WINDOW_HEIGHT * 2 / 5, 0, 0);
-	SpikyEffect->SetSize(256, 256);
-
-	ImpactMot = new ImpactMotion;
-	SpikyEffect->SetMotion(ImpactMot);
-
-	{
-		int posX = MonsterPosX - 48;
-		int posY = MonsterPosY + (256 + 50);
-
-		ProbremStr = new Font(g_hMdcString, TRUE, recFont, posX, posY, 0, 0);
-		ProbremStr->SetFontBackGround(g_hMdcGauge);
-		ProbremStr->SetSize(GAUGE_WIDTH, GAUGE_HEIGHT);
-
-		posY += 74;
-		InputStr = new Font(g_hMdcString, TRUE, recFont, posX, posY, 0, 0);
-		InputStr->SetFontBackGround(g_hMdcGauge);
-		InputStr->SetFontRed(g_hMdcRedString);
-		InputStr->SetSize(GAUGE_WIDTH, GAUGE_HEIGHT);
-
-		//posX = skullPosX;
-		posY += 74;
-		Hp = new HP(g_hMdcGauge, FALSE, recGauge,
-			posX, posY, 0, 0,
-			RGB(255, 255, 255)
-		);
-		Hp->SetSize(GAUGE_WIDTH, GAUGE_HEIGHT - 20);
-
-		posY += 52;
-		Timer = new Time(g_hMdcGauge, FALSE, recGauge,
-			posX, posY, 0, 0,
-			RGB(255, 255, 255)
-		);
-		Timer->SetSize(GAUGE_WIDTH, GAUGE_HEIGHT - 20);
-	}
-
+void InitailizeProbrem()
+{
 	// 問題文の初期化
 	probrems[0] = "KIWI";
 	probrems[1] = "GRAPE";
@@ -913,171 +1144,10 @@ void Init(HWND hWnd)
 	probremsExtra[97] = "DEPTH";
 	probremsExtra[98] = "DESCRIPTION";
 	probremsExtra[99] = "DESIGN";
-
-	for (auto i = 0; i < PROBREM_MAX; ++i) {
-		currentProbremSet.push_back(probrems[i]);
-	}
-
-	Phase = GAME_PHASE::TITLE;
 }
 
-/**
-*	@param {num} 何番目の問題か
-*/
-bool CheckInput(int num)
+void InitializeSelection()
 {
-	// 入力文字列と問題の文字列を比較する
-	for (auto i = 0; currentProbremSet[probremNum][i] != '\0'; ++i) {
-		if (input[i] != currentProbremSet[probremNum][i]) return false;
-	}
-	return true;
-}
-
-void Update()
-{
-	std::chrono::system_clock::time_point nowTime;
-	double elapsed;
-	switch (Phase)
-	{
-	case GAME_PHASE::TITLE:
-		Sign->SetUse(true);
-		// 選択枠の移動
-		if (Select == 0) {
-			SelectFrame->SetPosition(
-				(WINDOW_WIDTH / 2.f) - 64.f,
-				WINDOW_HEIGHT * 6.f / 10.f
-			);
-		}
-		else {
-			SelectFrame->SetPosition(
-				(WINDOW_WIDTH / 2.f) - 64.f,
-				(WINDOW_HEIGHT * 6.f / 10.f) + 96.f
-			);
-		}
-		break;
-	case GAME_PHASE::LEVELDISP:
-		Sign->Update();
-		if (ReducMot->IsCompleted()) {
-			Phase = GAME_PHASE::PLAY;
-			Sign->SetUse(false);
-			Monster->SetUse(true);
-			Timer->Start();
-		}
-		break;
-	case GAME_PHASE::PLAY:
-		Play();
-		break;
-	case GAME_PHASE::RESULT:
-		g_Bolt->Update();
-		SpikyEffect->Update();
-		nowTime = std::chrono::system_clock::now();
-		elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(nowTime - g_WaitStart).count();
-		if (elapsed >= 1500) {
-			if (Winner == 1) {
-				Monster->SetUse(false);
-			}
-			Msg->SetUse(true);
-		}
-		break;
-	default:
-		break;
-	}
-}
-
-void Draw(HDC hdc)
-{
-	Bgo->Draw(hdc, false);
-
-	switch (Phase)
-	{
-	case GAME_PHASE::TITLE:
-		Msg->Draw(hdc, TRUE);
-		Selection1->Draw(hdc, TRUE);
-		Selection2->Draw(hdc, TRUE);
-		SelectFrame->Draw(hdc, TRUE);
-		break;
-	case GAME_PHASE::LEVELDISP:
-		Sign->Draw(hdc);
-		break;
-	case GAME_PHASE::RESULT:
-		Msg->Draw(hdc, TRUE);
-	case GAME_PHASE::PLAY:
-		Monster->Draw(hdc, TRUE);
-		ProbremStr->Draw(hdc, &currentProbremSet[probremNum]);
-		InputStr->Draw(hdc, &currentProbremSet[probremNum], input);
-		Hp->Draw(hdc);
-		Timer->Draw(hdc);
-		g_Bolt->Draw(hdc);
-		SpikyEffect->Draw(hdc);
-		break;
-	case GAME_PHASE::CLEAR:
-		Sign->Draw(hdc);
-		break;
-	default:
-		break;
-	}
-}
-
-//===========================================================================
-// 資源の解放処理
-//===========================================================================
-void Finalize()
-{
-	// ビットマップオブジェクトを解放する
-	DeleteObject(g_hbmpBG);
-	DeleteObject(g_hbmpString);
-	DeleteObject(g_hbmpRedString);
-	DeleteObject(g_hbmpBolt);
-	DeleteObject(g_hbmpMonster);
-	DeleteObject(g_hbmpMonster2);
-	DeleteObject(g_hbmpMonster3);
-	DeleteObject(g_hbmpMonster4);
-	DeleteObject(g_hbmpMonster5);
-	DeleteObject(g_hbmpMonsterEx);
-	DeleteObject(g_hbmpGauge);
-	DeleteObject(g_hbmpSpike);
-	DeleteObject(g_hbmpMsg);
-	DeleteObject(g_hbmpSign);
-	DeleteObject(g_hbmpSelect);
-	DeleteObject(g_hBitmap);
-
-	// 作成したメモリーデバイスコンテキストを開放する
-	DeleteDC(g_hMdcBG);
-	DeleteDC(g_hMdcString);
-	DeleteDC(g_hMdcRedString);
-	DeleteDC(g_hMdcBolt);
-	DeleteDC(g_hMdcMonster);
-	DeleteDC(g_hMdcMonster2);
-	DeleteDC(g_hMdcMonster3);
-	DeleteDC(g_hMdcMonster4);
-	DeleteDC(g_hMdcMonster5);
-	DeleteDC(g_hMdcMonsterEx);
-	DeleteDC(g_hMdcGauge);
-	DeleteDC(g_hMdcSpike);
-	DeleteDC(g_hMdcMsg);
-	DeleteDC(g_hMdcSign);
-	DeleteDC(g_hMdcSelect);
-	DeleteDC(g_hMdcBitmap);
-
-	SAFE_DELETE(Bgo);
-	SAFE_DELETE(Monster);
-	SAFE_DELETE(Msg);
-	SAFE_DELETE(Sign);
-	SAFE_DELETE(Hp);
-	SAFE_DELETE(Timer);
-	SAFE_DELETE(ImpactMot);
-	SAFE_DELETE(BoltMot);
-	SAFE_DELETE(ReducMot);
-	SAFE_DELETE(SpikyEffect);
-	SAFE_DELETE(g_Bolt);
-	SAFE_DELETE(ProbremStr);
-	SAFE_DELETE(InputStr);
-	SAFE_DELETE(Selection1);
-	SAFE_DELETE(Selection2);
-	SAFE_DELETE(SelectFrame);
-}
-
-void SetUpSelection() {
 	RECT recSelect = { 0, 0, g_BitmapSelect.bmWidth, g_BitmapSelect.bmHeight };
 	POINT size{ 128.f, 64.f };
 	float initPosX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
@@ -1088,9 +1158,7 @@ void SetUpSelection() {
 		0, 0
 	);
 	Selection1->SetSize(size.x, size.y);
-	Selection1->SetRect(RECT{ 0, 0, 1024, 164 });
 	Selection1->SetColor(RGB(255, 255, 255));
-	Selection1->SetUse(true);
 
 	Selection2 = new Sample(
 		g_hMdcSelect, TRUE, recSelect,
@@ -1098,9 +1166,7 @@ void SetUpSelection() {
 		0, 0
 	);
 	Selection2->SetSize(size.x, size.y);
-	Selection2->SetRect(RECT{ 0, 166, 1024, 147 });
 	Selection2->SetColor(RGB(255, 255, 255));
-	Selection2->SetUse(true);
 
 	SelectFrame = new Sample(
 		g_hMdcSelect, TRUE, recSelect,
@@ -1110,12 +1176,22 @@ void SetUpSelection() {
 	SelectFrame->SetSize(size.x, size.y);
 	SelectFrame->SetRect(RECT{ 0, 313, 1024, 199 });
 	SelectFrame->SetColor(RGB(255, 255, 255));
-	SelectFrame->SetUse(true);
 
+	SetUpSelection(
+		RECT{ 0, 0, 1024, 164 },
+		RECT{ 0, 166, 1024, 147 }
+	);
 }
 
-void Title()
+void SetUpSelection(RECT rect1, RECT rect2)
 {
+	Selection1->SetRect(rect1);
+	Selection1->SetUse(true);
+
+	Selection2->SetRect(rect2);
+	Selection2->SetUse(true);
+
+	SelectFrame->SetUse(true);
 }
 
 void Play()
@@ -1130,7 +1206,7 @@ void Play()
 		SpikyEffect->Start();
 		if (Hp->GetHP() <= HP_MIN) {
 			Phase = GAME_PHASE::RESULT;
-			PrepareMessage(2);
+			SetUpResult(2);
 		}
 		else {
 			Timer->Start();
@@ -1153,7 +1229,7 @@ void PlayForLevelMode()
 		SpikyEffect->Start();
 		if (Hp->GetHP() <= HP_MIN) {
 			Phase = GAME_PHASE::RESULT;
-			PrepareMessage(2);
+			SetUpResult(2);
 		}
 		else {
 			Timer->Start();
@@ -1168,16 +1244,24 @@ void PlayFor1ooMode()
 {
 }
 
-void PrepareMessage(int winner)
+void SetUpResult(int winner)
 {
-	Msg->SetPosition(WINDOW_WIDTH * 4 / 10, WINDOW_HEIGHT * 1 / 10);
-	Msg->SetSize(256, 64);
+	POINT size{ 256, 64 };
+	float posX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
+	float posY = WINDOW_HEIGHT / 2.f - (size.y / 2.f) - 269.f;
+
+	Msg->SetPosition(posX, posY);
+	Msg->SetSize(size.x, size.y);
 	if (winner == 1) {
 		Msg->SetRect(RECT{ 0, 0, 128, 32 });
+		SetUpWinSelection();
 	}
 	else {
 		Msg->SetRect(RECT{ 0, 32, 128, 32 });
+		SetUpLooseSelection();
 	}
+	// エフェクトの再生が完了するまで選択肢は隠しておく
+	HideSelection();
 	g_WaitStart = std::chrono::system_clock::now();
 }
 
@@ -1185,7 +1269,45 @@ void ResetInput() {
 	memset(input, 0, sizeof(input));
 }
 
-void PrepareNextLevel()
+void SetUpWinSelection()
+{
+	SetUpSelection(
+		RECT{ 0, 520, 1024, 132 },
+		RECT{ 0, 860, 1024, 140 }
+	);
+}
+
+void SetUpLooseSelection()
+{
+	SetUpSelection(
+		RECT{ 0, 698, 1024, 132 },
+		RECT{ 0, 860, 1024, 140 }
+	);
+}
+
+void SetUpStageSelection()
+{
+	SetUpSelection(
+		RECT{ 0, 0, 1024, 164 },
+		RECT{ 0, 166, 1024, 147 }
+	);
+}
+
+void HideSelection()
+{
+	Selection1->SetUse(false);
+	Selection2->SetUse(false);
+	SelectFrame->SetUse(false);
+}
+
+void ShowSelection()
+{
+	Selection1->SetUse(true);
+	Selection2->SetUse(true);
+	SelectFrame->SetUse(true);
+}
+
+void SetUpNextLevel()
 {
 	// 問題集初期化
 	probremNum = 0;
@@ -1307,7 +1429,7 @@ void SetUp100Mode()
 	Monster->SetRect(recMonster);
 }
 
-void GameClear()
+void SetUpGameClear()
 {
 	Msg->SetUse(false);
 
@@ -1337,6 +1459,8 @@ void GameEnd()
 	Sign->SetUse(false);
 	Sign->SetPosition(initPosX, initPosY);
 	Sign->SetSize(size.x, size.y);
+
+	ProbInfo->SetUse(false);
 
 	Hp->ResetHP();
 

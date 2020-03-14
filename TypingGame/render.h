@@ -24,10 +24,8 @@ protected:
 	POINT size;	// サイズ
 
 public:
-	Object() { Init(); }
+	Object();
 	virtual ~Object() {}
-
-	void Init();
 
 	// アクセサ
 	void SetTransparent(BOOL trs) { isTransparent = trs; }

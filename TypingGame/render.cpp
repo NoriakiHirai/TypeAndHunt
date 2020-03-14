@@ -7,17 +7,19 @@
 //***************************************************************************
 #pragma comment(lib, "winmm.lib")
 
-void Object::Init() {
-    used = FALSE;
-    isTransparent = FALSE;
+Object::Object()
+{
+	used = TRUE;
+	isTransparent = FALSE;
 
-    hMdc = nullptr;
+	hMdc = nullptr;
 
-    rect = { 0,0,0,0 };
+	rect = { 0,0,0,0 };
 	//color = RGB(255, 255, 255);
 	color = RGB(0, 0, 0);
 
-    positionX = positionY = speedX = speedY = 0.f;
+	positionX = positionY = speedX = speedY = 0.f;
+	size = POINT{ 0, 0 };
 }
 
 POINT Object::GetPosition()

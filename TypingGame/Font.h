@@ -1,6 +1,9 @@
 #pragma once
 #include "render.h"
 
+extern const int FONT_WIDTH;
+extern const int FONT_HEIGHT;
+
 class Font : public Object
 {
 private:

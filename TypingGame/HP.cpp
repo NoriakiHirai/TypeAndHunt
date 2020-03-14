@@ -37,6 +37,7 @@ void HP::UpdateHP(int delta)
 
 void HP::Draw(HDC hdc)
 {
+	if (!used) return;
 	// îwåi
 	TransparentBlt(
 		hdc,
