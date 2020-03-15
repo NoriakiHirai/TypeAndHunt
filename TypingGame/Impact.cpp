@@ -32,7 +32,7 @@ void Impact::Update()
 void Impact::Draw(HDC hdc)
 {
 	if (!onRendering) return;
-	int offsetX = 400;
+	int offsetX = 300;
 	int offsetY = 100;
 	TransparentBlt(
 		hdc,
@@ -44,7 +44,7 @@ void Impact::Draw(HDC hdc)
 
 	TransparentBlt(
 		hdc,
-		(int)positionX + (offsetX / 2), (int)positionY - offsetY, size.x, size.y,
+		(int)positionX + offsetX - 15, (int)positionY - offsetY, size.x, size.y,
 		hMdc,
 		rect.left, rect.top, rect.right, rect.bottom,
 		color

@@ -28,6 +28,7 @@
 #include "Bolt.h"
 #include "Impact.h"
 #include "ProbremInfo.h"
+#include "audio/AyameAudio.h"
 
 #pragma comment(lib, "winmm.lib")
 
@@ -54,6 +55,8 @@ HINSTANCE hInst;                                // 現在のインターフェ�
 WCHAR szTitle[MAX_LOADSTRING];                  // タイトル バーのテキスト
 WCHAR szWindowClass[MAX_LOADSTRING];            // メイン ウィンドウ クラス名
 
+AyameAudio* aAudio;
+
 //文字列描画用配列
 std::vector<std::string> currentProbremSet;
 std::string probrems[10];
@@ -66,10 +69,11 @@ char input[61];
 
 // 問題の番号
 int probremNum = 0;
-const int PROBREM_MAX = 1;
-const int EX_STAGE_PROBREM_MAX = 99;
+const int PROBREM_MAX = 10;
+const int EX_STAGE_PROBREM_MAX = 100;
 const int LEVEL_MAX = 5;
-const int HP_MIN = 5;
+const int DEFAULT_LEVEL_EX_STAGE = 99;
+const int HP_MIN = 0;
 const int INPUT_MAX = 20;
 
 const float SIGN_INIT_POS_X = 384.f;
@@ -189,6 +193,7 @@ void Finalize();
 void InitializeHDC(HWND hWnd);
 void InitailizeProbrem();
 void InitializeSelection();
+void SetUpProbremSet();
 void SetUpSelection(RECT rect1, RECT rect2);
 void Play();
 void PlayForLevelMode();
@@ -198,13 +203,17 @@ void ResetInput();
 void SetUpWinSelection();
 void SetUpLooseSelection();
 void SetUpStageSelection();
-void HideSelection();
 void ShowSelection();
-void SetUpNextLevel();
+void HideSelection();
+void ShowPlayUI();
+void HidePlayUI();
+void SetUpStartScene(int level);
 void SetUpNormalMode();
 void SetUp100Mode();
 void SetUpGameClear();
-void GameEnd();
+void SetUpTitle();
+void MoveSelectFame();
+void SelectNextScene();
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -313,6 +322,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             switch (wmId)
             {
 			case IDM_HOWTOCONTROL:
+				oss << "（操作方法）\n";
+				oss << "エンター：決定\n";
+				oss << "上下キー：選択\n\n";
+
 				oss << "表示された単語を打ち込みエンターキーを押します。\n";
 				oss << "打ち込んだ単語が合っていれば、敵にダメージを与えられます。\n";
 				oss << "間違って入力した文字は赤色で表示されます。\n";
@@ -368,25 +381,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 		case VK_UP:
-			switch (Phase)
-			{
-			case TITLE:
-				--Select;
-				//Select = (Select < 0 ? 0 : Select);
-				Select %= 2;
-				Select = std::abs(Select);
-				break;
-			}
+			--Select;
+			//Select = (Select < 0 ? 0 : Select);
+			Select %= 2;
+			Select = std::abs(Select);
 			break;
 		case VK_DOWN:
-			switch (Phase)
-			{
-			case TITLE:
-				++Select;
-				//Select = (Select > 1 ? 1 : Select);
-				Select %= 2;
-				break;
-			}
+			++Select;
+			//Select = (Select > 1 ? 1 : Select);
+			Select %= 2;
 			break;
 		case VK_RETURN:
 			switch (Phase)
@@ -432,12 +435,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 						}
 						break;
 					case 1:
-						if (probremNum == EX_STAGE_PROBREM_MAX) {
+						if (probremNum == EX_STAGE_PROBREM_MAX - 1) {
 							Phase = GAME_PHASE::RESULT;
 							SetUpResult(1);
 						}
 						else {
 							++probremNum;
+							//probremNum += 99;
 							Timer->Start();
 						}
 						break;
@@ -448,30 +452,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 			case RESULT:
 				HideSelection();
-				switch (Mode)
-				{
-				case 0:
-					++level;
-					if (level > LEVEL_MAX) {
-						Phase = GAME_PHASE::CLEAR;
-						SetUpGameClear();
-					}
-					else {
-						Phase = GAME_PHASE::LEVELDISP;
-						SetUpNextLevel();
-					}
-					break;
-				case 1:
-					Phase = GAME_PHASE::CLEAR;
-					SetUpGameClear();
-					break;
-				default:
-					break;
-				}
+				SelectNextScene();
 				break;
 			case CLEAR:
 				Phase = GAME_PHASE::TITLE;
-				GameEnd();
+				SetUpTitle();
 				break;
 			default:
 				break;
@@ -607,7 +592,6 @@ void Init(HWND hWnd)
 		POINT size{ 64, 64 };
 		float initPosX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
 		float initPosY = WINDOW_HEIGHT / 2.f - (size.y / 2.f) - 230.f;
-
 		g_Bolt = new Bolt(
 			g_hMdcBolt, TRUE, recBolt,
 			initPosX, initPosY,
@@ -624,7 +608,7 @@ void Init(HWND hWnd)
 	{
 		POINT size{ 256, 256 };
 		float initPosX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
-		float initPosY = WINDOW_HEIGHT / 2.f - (size.y / 2.f) + 50.f;
+		float initPosY = WINDOW_HEIGHT / 2.f - (size.y / 2.f);
 		SpikyEffect = new Impact(g_hMdcSpike, TRUE, recSpike,
 			initPosX, initPosY, 0, 0);
 		SpikyEffect->SetSize(size.x, size.y);
@@ -670,6 +654,11 @@ void Init(HWND hWnd)
 
 	InitailizeProbrem();
 
+	aAudio = new AyameAudio;
+	aAudio->SetClip("");
+	aAudio->SetLoop(true);
+	aAudio->Play();
+
 	Phase = GAME_PHASE::TITLE;
 }
 
@@ -693,19 +682,7 @@ void Update()
 	{
 	case GAME_PHASE::TITLE:
 		Sign->SetUse(true);
-		// 選択枠の移動
-		if (Select == 0) {
-			SelectFrame->SetPosition(
-				(WINDOW_WIDTH / 2.f) - 64.f,
-				WINDOW_HEIGHT * 6.f / 10.f
-			);
-		}
-		else {
-			SelectFrame->SetPosition(
-				(WINDOW_WIDTH / 2.f) - 64.f,
-				(WINDOW_HEIGHT * 6.f / 10.f) + 96.f
-			);
-		}
+		MoveSelectFame();
 		break;
 	case GAME_PHASE::LEVELDISP:
 		Sign->Update();
@@ -720,6 +697,7 @@ void Update()
 		Play();
 		break;
 	case GAME_PHASE::RESULT:
+		// 選択肢は常に1番目
 		g_Bolt->Update();
 		SpikyEffect->Update();
 		nowTime = std::chrono::system_clock::now();
@@ -732,10 +710,22 @@ void Update()
 			Hp->SetUse(FALSE);
 			Timer->SetUse(FALSE);
 			ShowSelection();
-			if (Winner == 1) {
-				Monster->SetUse(false);
-			}
+			MoveSelectFame();
 		}
+		break;
+	case GAME_PHASE::CLEAR:
+		nowTime = std::chrono::system_clock::now();
+		elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(nowTime - g_WaitStart).count();
+		if (elapsed > 85) { // 約５フレーム
+			Sign->SetRect(RECT{ 0, 198, 128, 22 });
+		}
+		else {
+			Sign->SetRect(RECT{ 0, 603, 128, 22 });
+		}
+		if ((elapsed >= 170)) {
+			g_WaitStart = std::chrono::system_clock::now();
+		}
+		
 		break;
 	default:
 		break;
@@ -775,7 +765,7 @@ void Draw(HDC hdc)
 		g_Bolt->Draw(hdc);
 		SpikyEffect->Draw(hdc);
 		if (Mode == 1) {
-			ProbInfo->Draw(hdc, probremNum);
+			ProbInfo->Draw(hdc, probremNum + 1);
 		}
 		Selection1->Draw(hdc, TRUE);
 		Selection2->Draw(hdc, TRUE);
@@ -850,6 +840,7 @@ void Finalize()
 	SAFE_DELETE(Selection1);
 	SAFE_DELETE(Selection2);
 	SAFE_DELETE(SelectFrame);
+	SAFE_DELETE(aAudio);
 }
 
 void InitializeHDC(HWND hWnd)
@@ -1183,6 +1174,60 @@ void InitializeSelection()
 	);
 }
 
+void SetUpProbremSet()
+{
+	probremNum = 0;
+	if (currentProbremSet.size() > 0) {
+		currentProbremSet.erase(
+			currentProbremSet.begin(),
+			currentProbremSet.end()
+		);
+	}
+	
+	switch (Mode)
+	{
+	case 0:	// ノーマルモード
+		switch (level)
+		{
+		case 1:
+			for (auto i = 0; i < PROBREM_MAX; ++i) {
+				currentProbremSet.push_back(probrems[i]);
+			}
+			break;
+		case 2:
+			for (auto i = 0; i < PROBREM_MAX; ++i) {
+				currentProbremSet.push_back(probrems2[i]);
+			}
+			break;
+		case 3:
+			for (auto i = 0; i < PROBREM_MAX; ++i) {
+				currentProbremSet.push_back(probrems3[i]);
+			}
+			break;
+		case 4:
+			for (auto i = 0; i < PROBREM_MAX; ++i) {
+				currentProbremSet.push_back(probrems4[i]);
+			}
+			break;
+		case 5:
+			for (auto i = 0; i < PROBREM_MAX; ++i) {
+				currentProbremSet.push_back(probrems5[i]);
+			}
+			break;
+		default:
+			break;
+		}
+		break;
+	case 1:	// １００問耐久モード
+		for (auto i = 0; i < 100; ++i) {
+			currentProbremSet.push_back(probremsExtra[i]);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
 void SetUpSelection(RECT rect1, RECT rect2)
 {
 	Selection1->SetRect(rect1);
@@ -1246,6 +1291,7 @@ void PlayFor1ooMode()
 
 void SetUpResult(int winner)
 {
+	Winner = winner;
 	POINT size{ 256, 64 };
 	float posX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
 	float posY = WINDOW_HEIGHT / 2.f - (size.y / 2.f) - 269.f;
@@ -1271,14 +1317,25 @@ void ResetInput() {
 
 void SetUpWinSelection()
 {
-	SetUpSelection(
-		RECT{ 0, 520, 1024, 132 },
-		RECT{ 0, 860, 1024, 140 }
-	);
+	Select = 0;
+	if (level >= 5 || Mode == 1) {
+		// クリアの場合
+		SetUpSelection(
+			RECT{ 0, 1013, 1024, 142 },
+			RECT{ 0, 0, 0, 0 }
+		);
+	}
+	else {
+		SetUpSelection(
+			RECT{ 0, 520, 1024, 132 },
+			RECT{ 0, 860, 1024, 140 }
+		);
+	}
 }
 
 void SetUpLooseSelection()
 {
+	Select = 0;
 	SetUpSelection(
 		RECT{ 0, 698, 1024, 132 },
 		RECT{ 0, 860, 1024, 140 }
@@ -1287,6 +1344,7 @@ void SetUpLooseSelection()
 
 void SetUpStageSelection()
 {
+	Select = 0;
 	SetUpSelection(
 		RECT{ 0, 0, 1024, 164 },
 		RECT{ 0, 166, 1024, 147 }
@@ -1300,6 +1358,24 @@ void HideSelection()
 	SelectFrame->SetUse(false);
 }
 
+void ShowPlayUI()
+{
+	Monster->SetUse(true);
+	ProbremStr->SetUse(true);
+	InputStr->SetUse(true);
+	Hp->SetUse(true);
+	Timer->SetUse(true);
+}
+
+void HidePlayUI()
+{
+	Monster->SetUse(false);
+	ProbremStr->SetUse(false);
+	InputStr->SetUse(false);
+	Hp->SetUse(false);
+	Timer->SetUse(false);
+}
+
 void ShowSelection()
 {
 	Selection1->SetUse(true);
@@ -1307,30 +1383,27 @@ void ShowSelection()
 	SelectFrame->SetUse(true);
 }
 
-void SetUpNextLevel()
+void SetUpStartScene(int level)
 {
-	// 問題集初期化
-	probremNum = 0;
-	if (currentProbremSet.size() > 0) {
-		currentProbremSet.erase(
-			currentProbremSet.begin(),
-			currentProbremSet.end()
-		);
-	}
+	// 問題集設定
+	SetUpProbremSet();
+	
+	ResetInput();
+
 	// HP初期化
 	Hp->UpdateHP(5);
+
 	Msg->SetUse(false);
 	Sign->SetPosition(SIGN_INIT_POS_X, SIGN_INIT_POS_Y);
 	RECT recMonster;
+
 	switch (level)
 	{
 	case 1:
 		// レベル表示の切り替え
 		Sign->SetRect(RECT{ 0, 224, 128, 62 });
 		Sign->Start();
-		for (auto i = 0; i < 10; ++i) {
-			currentProbremSet.push_back(probrems[i]);
-		}
+
 		// 敵キャラ表示の切り替え
 		Monster->SetHMDC(g_hMdcMonster);
 		recMonster = { 0, 0, g_BitmapMonster.bmWidth, g_BitmapMonster.bmHeight };
@@ -1339,9 +1412,6 @@ void SetUpNextLevel()
 	case 2:
 		Sign->SetRect(RECT{ 0, 286, 128, 62 });
 		Sign->Start();
-		for (auto i = 0; i < 10; ++i) {
-			currentProbremSet.push_back(probrems2[i]);
-		}
 
 		Monster->SetHMDC(g_hMdcMonster2);
 		recMonster = { 0, 0, g_BitmapMonster2.bmWidth, g_BitmapMonster2.bmHeight };
@@ -1350,9 +1420,6 @@ void SetUpNextLevel()
 	case 3:
 		Sign->SetRect(RECT{ 0, 348, 128, 62 });
 		Sign->Start();
-		for (auto i = 0; i < 10; ++i) {
-			currentProbremSet.push_back(probrems3[i]);
-		}
 
 		Monster->SetHMDC(g_hMdcMonster3);
 		recMonster = { 0, 0, g_BitmapMonster3.bmWidth, g_BitmapMonster3.bmHeight };
@@ -1361,9 +1428,6 @@ void SetUpNextLevel()
 	case 4:
 		Sign->SetRect(RECT{ 0, 412, 128, 62 });
 		Sign->Start();
-		for (auto i = 0; i < 10; ++i) {
-			currentProbremSet.push_back(probrems4[i]);
-		}
 
 		Monster->SetHMDC(g_hMdcMonster4);
 		recMonster = { 0, 0, g_BitmapMonster4.bmWidth, g_BitmapMonster4.bmHeight };
@@ -1372,35 +1436,43 @@ void SetUpNextLevel()
 	case 5:
 		Sign->SetRect(RECT{ 0, 474, 128, 62 });
 		Sign->Start();
-		for (auto i = 0; i < 10; ++i) {
-			currentProbremSet.push_back(probrems5[i]);
-		}
 
 		Monster->SetHMDC(g_hMdcMonster5);
 		recMonster = { 0, 0, g_BitmapMonster5.bmWidth, g_BitmapMonster5.bmHeight };
 		Monster->SetRect(recMonster);
 		break;
+	case DEFAULT_LEVEL_EX_STAGE:
+		Sign->SetRect(RECT{ 0, 536, 128, 62 });
+		Sign->Start();
+
+		Monster->SetHMDC(g_hMdcMonsterEx);
+		recMonster = { 0, 0, g_BitmapMonsterEx.bmWidth, g_BitmapMonsterEx.bmHeight };
+		Monster->SetRect(recMonster);
+		break;
 	default:
 		break;
 	}
+	ShowPlayUI();
 }
 
 void SetUpNormalMode()
 {
+	level = 1;
+
 	// 問題集初期化
-	probremNum = 0;
-	if (currentProbremSet.size() > 0) {
-		currentProbremSet.erase(
-			currentProbremSet.begin(),
-			currentProbremSet.end()
-		);
-	}
+	SetUpProbremSet();
+
 	RECT recMonster;
 	// レベル表示の切り替え
 	Sign->SetRect(RECT{ 0, 224, 128, 62 });
-	for (auto i = 0; i < 10; ++i) {
-		currentProbremSet.push_back(probrems[i]);
-	}
+	POINT size{ 256, 128 };
+	Sign->SetSize(size.x, size.y);
+	float posX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
+	float posY = WINDOW_HEIGHT / 2.f - (size.y / 2.f) - 32.f;
+	Sign->SetPosition(posX, posY);
+
+	ShowPlayUI();
+
 	// 敵キャラ表示の切り替え
 	Monster->SetHMDC(g_hMdcMonster);
 	recMonster = { 0, 0, g_BitmapMonster.bmWidth, g_BitmapMonster.bmHeight };
@@ -1409,20 +1481,22 @@ void SetUpNormalMode()
 
 void SetUp100Mode()
 {
+	level = DEFAULT_LEVEL_EX_STAGE;
+
 	// 問題集初期化
-	probremNum = 0;
-	if (currentProbremSet.size() > 0) {
-		currentProbremSet.erase(
-			currentProbremSet.begin(),
-			currentProbremSet.end()
-		);
-	}
+	SetUpProbremSet();
+
 	RECT recMonster;
 	// レベル表示の切り替え
 	Sign->SetRect(RECT{ 0, 536, 128, 62 });
-	for (auto i = 0; i < 100; ++i) {
-		currentProbremSet.push_back(probremsExtra[i]);
-	}
+	POINT size{ 256, 128 };
+	Sign->SetSize(size.x, size.y);
+	float posX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
+	float posY = WINDOW_HEIGHT / 2.f - (size.y / 2.f) - 32.f;
+	Sign->SetPosition(posX, posY);
+
+	ShowPlayUI();
+
 	// 敵キャラ表示の切り替え
 	Monster->SetHMDC(g_hMdcMonsterEx);
 	recMonster = { 0, 0, g_BitmapMonsterEx.bmWidth, g_BitmapMonsterEx.bmHeight };
@@ -1433,9 +1507,8 @@ void SetUpGameClear()
 {
 	Msg->SetUse(false);
 
-	Monster->SetUse(false);
-	ProbremStr->SetUse(false);
-	InputStr->SetUse(false);
+	HidePlayUI();
+
 	Sign->SetUse(true);
 	POINT size{ 756, 128 };
 	float posX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
@@ -1445,7 +1518,7 @@ void SetUpGameClear()
 	Sign->SetRect(RECT{ 0, 198, 128, 22 });
 }
 
-void GameEnd()
+void SetUpTitle()
 {
 	// タイトル画面に戻る準備
 	Msg->SetUse(true);
@@ -1453,19 +1526,74 @@ void GameEnd()
 	Msg->SetSize(512, 256);
 	Msg->SetRect(RECT{ 0, 64, 128,32 });
 
-	POINT size{ 256, 128 };
-	float initPosX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
-	float initPosY = WINDOW_HEIGHT / 2.f - (size.y / 2.f) - 32.f;
-	Sign->SetUse(false);
-	Sign->SetPosition(initPosX, initPosY);
-	Sign->SetSize(size.x, size.y);
+	SetUpStageSelection();
 
 	ProbInfo->SetUse(false);
+	Monster->SetUse(false);
+	ShowSelection();
 
 	Hp->ResetHP();
 
 	probremNum = 0;
 	ResetInput();
 
-	level = 1;
+	Select = 0;
+}
+
+void MoveSelectFame()
+{
+	// レベルMAXかつ勝利した時は選択肢を動かさない
+	if (level == LEVEL_MAX && Winner == 1) {
+		Select = 0;
+	}
+
+	// 選択枠の移動
+	if (Select == 0) {
+		SelectFrame->SetPosition(
+			(WINDOW_WIDTH / 2.f) - 64.f,
+			WINDOW_HEIGHT * 6.f / 10.f
+		);
+	}
+	else {
+		SelectFrame->SetPosition(
+			(WINDOW_WIDTH / 2.f) - 64.f,
+			(WINDOW_HEIGHT * 6.f / 10.f) + 96.f
+		);
+	}
+}
+
+void SelectNextScene()
+{
+	if (Select == 1) {
+		Phase = GAME_PHASE::TITLE;
+		SetUpTitle();
+		return;
+	}
+
+	switch (Mode)
+	{
+	case 0:
+		if (Winner == 1) ++level;
+		if (level > LEVEL_MAX) {
+			Phase = GAME_PHASE::CLEAR;
+			SetUpGameClear();
+		}
+		else {
+			Phase = GAME_PHASE::LEVELDISP;
+			SetUpStartScene(level);
+		}
+		break;
+	case 1:
+		if (Winner == 1) {
+			Phase = GAME_PHASE::CLEAR;
+			SetUpGameClear();
+		}
+		else {
+			Phase = GAME_PHASE::LEVELDISP;
+			SetUpStartScene(level);
+		}
+		break;
+	default:
+		break;
+	}
 }

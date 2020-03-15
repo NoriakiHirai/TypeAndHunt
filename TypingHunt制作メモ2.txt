@@ -19,12 +19,13 @@ Hp
 	
 	
 ## Sign
-	Sign = new Effect(
-		g_hMdcSign, TRUE, recSign,
-		WINDOW_WIDTH * 4 / 10, WINDOW_HEIGHT * 3 / 10,
-		0, 0
-	);
-	Sign->SetSize(256, 128);
-	Sign->SetColor(RGB(0, 0, 0));
-	ReducMot = new ReductionMotion(POINT{ 512, 256 });
-	Sign->SetMotion(ReducMot);
+POINT size{ 256, 128 };
+float initPosX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
+float initPosY = WINDOW_HEIGHT / 2.f - (size.y / 2.f) - 32.f;
+Sign = new Effect(
+	g_hMdcSign, TRUE, recSign,
+	initPosX, initPosY,
+	0, 0
+);
+Sign->SetSize(size.x, size.y);
+	

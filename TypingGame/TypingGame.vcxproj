@@ -149,6 +149,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="audio\AyameAudio.h" />
+    <ClInclude Include="audio\ayame\Ayame.h" />
+    <ClInclude Include="audio\ayame\AyameManager.h" />
+    <ClInclude Include="audio\ayame\SoundManager.h" />
+    <ClInclude Include="audio\ayame\SoundManagerWin.h" />
+    <ClInclude Include="audio\ayame\VoiceElement.h" />
+    <ClInclude Include="audio\ayame\VoiceElementAyame.h" />
     <ClInclude Include="Bolt.h" />
     <ClInclude Include="BoltMotion.h" />
     <ClInclude Include="Effect.h" />
@@ -168,6 +175,11 @@
     <ClInclude Include="utility.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="audio\AyameAudio.cpp" />
+    <ClCompile Include="audio\ayame\SoundManager.cpp" />
+    <ClCompile Include="audio\ayame\SoundManagerWin.cpp" />
+    <ClCompile Include="audio\ayame\VoiceElement.cpp" />
+    <ClCompile Include="audio\ayame\VoiceElementAyame.cpp" />
     <ClCompile Include="Bolt.cpp" />
     <ClCompile Include="BoltMotion.cpp" />
     <ClCompile Include="Effect.cpp" />
