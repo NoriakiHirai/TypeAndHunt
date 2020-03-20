@@ -39,3 +39,4 @@ Sign->SetSize(size.x, size.y);
 ÅZ win
 ÅZ loose
 ÅZ gameClear
+
