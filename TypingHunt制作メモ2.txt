@@ -28,4 +28,14 @@ Sign = new Effect(
 	0, 0
 );
 Sign->SetSize(size.x, size.y);
-	
+
+# サウンド
+〇 カーソル移動
+〇 決定
+〇 BGM
+〇 レベルdisp
+〇 稲妻
+〇 スパーク
+〇 win
+〇 loose
+〇 gameClear

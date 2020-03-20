@@ -529,6 +529,9 @@ void Init(HWND hWnd)
 	Select = 0;
 	Mode = 0;
 
+	// サウンドライブラリの初期化
+	//CVoiceElementAyame::m_sAyameMgr.LoadDLL("f")
+
 	InitializeHDC(hWnd);
 
 	// 背景やキャラクタなどの作成

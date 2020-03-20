@@ -15,7 +15,7 @@
 
 #ifdef _UNICODE
 	//#define	DEFAULT_AYAME_PATH	L("ayame.dll")
-static TCHAR DEFAULT_AYAME_PATH[] = { _T("ayame.dll") };
+static TCHAR DEFAULT_AYAME_PATH[] = { _T("Ayame.dll") };
 #else
 	#define	DEFAULT_AYAME_PATH	"ayame.dll"
 #endif
