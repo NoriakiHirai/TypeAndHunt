@@ -17,7 +17,8 @@
 	//#define	DEFAULT_AYAME_PATH	L("ayame.dll")
 static TCHAR DEFAULT_AYAME_PATH[] = { _T("Ayame.dll") };
 #else
-	#define	DEFAULT_AYAME_PATH	"ayame.dll"
+static TCHAR DEFAULT_AYAME_PATH[] = { _T("Ayame.dll") };
+//#define	DEFAULT_AYAME_PATH	"ayame.dll"
 #endif
 
 //! Ayameマネージャ

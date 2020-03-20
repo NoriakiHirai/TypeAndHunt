@@ -32,6 +32,8 @@
 
 #pragma comment(lib, "winmm.lib")
 
+#include <mmsystem.h>
+
 // シンボル定義及びマクロ
 #define WINDOW_WIDTH    1024
 #define WINDOW_HEIGHT   768
@@ -530,7 +532,9 @@ void Init(HWND hWnd)
 	Mode = 0;
 
 	// サウンドライブラリの初期化
-	//CVoiceElementAyame::m_sAyameMgr.LoadDLL("f")
+	//TCHAR str[] = {_T("C:\\Users\\nhirai\\source\\repos\\Games\\TypingGame\\TypingGame\\audio\\ayame\\Ayame.dll" )};
+	//CVoiceElementAyame::m_sAyameMgr.LoadDLL();
+	//CVoiceElementAyame::m_sAyameMgr.Initialize(hWnd);
 
 	InitializeHDC(hWnd);
 
@@ -657,11 +661,12 @@ void Init(HWND hWnd)
 
 	InitailizeProbrem();
 
-	aAudio = new AyameAudio;
-	aAudio->SetClip("");
-	aAudio->SetLoop(true);
-	aAudio->Play();
-
+	//aAudio = new AyameAudio;
+	//aAudio->SetClip("TypingGame/audio/data/gameClear.mp3");
+	//aAudio->SetLoop(true);
+	//aAudio->Play();
+	
+	PlaySound(CString("audio/data/wav/battle1.wav"), nullptr, SND_FILENAME | SND_ASYNC | SND_LOOP);
 	Phase = GAME_PHASE::TITLE;
 }
 
@@ -791,6 +796,9 @@ void Draw(HDC hdc)
 //===========================================================================
 void Finalize()
 {
+	// サウンド
+	CVoiceElementAyame::m_sAyameMgr.Release();
+
 	// ビットマップオブジェクトを解放する
 	DeleteObject(g_hbmpBG);
 	DeleteObject(g_hbmpString);
