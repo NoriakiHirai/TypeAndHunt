@@ -71,6 +71,9 @@ char input[61];
 
 // 問題の番号
 int probremNum = 0;
+bool IsBGMSounded = false;
+
+// 定数
 const int PROBREM_MAX = 10;
 const int EX_STAGE_PROBREM_MAX = 100;
 const int LEVEL_MAX = 5;
@@ -365,12 +368,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_KEYDOWN:
 		switch (wParam)
 		{
-			//  エスケープキーの場合
-		case VK_ESCAPE:
-			//終了メッセージを発生させる
-			PostMessage(hWnd, WM_CLOSE, 0, 0);
-			break;
-			//  スペースキーの場合
 		case VK_SPACE:
 			break;
 		case VK_BACK:
@@ -383,12 +380,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 		case VK_UP:
+			//PlaySound(CString("audio/data/wav/cursorMove.wav"), nullptr, SND_FILENAME | SND_ASYNC );
 			--Select;
 			//Select = (Select < 0 ? 0 : Select);
 			Select %= 2;
 			Select = std::abs(Select);
 			break;
 		case VK_DOWN:
+			//PlaySound(CString("audio/data/wav/cursorMove.wav"), nullptr, SND_FILENAME | SND_ASYNC);
 			++Select;
 			//Select = (Select > 1 ? 1 : Select);
 			Select %= 2;
@@ -399,6 +398,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case NONE:
 				break;
 			case TITLE:
+				PlaySound(CString("audio/data/wav/decision.wav"), nullptr, SND_FILENAME | SND_SYNC);
 				Phase = GAME_PHASE::LEVELDISP;
 				Msg->SetUse(false);
 				// for test
@@ -416,6 +416,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					break;
 				}
 				Sign->Start();
+				g_WaitStart = std::chrono::system_clock::now();
 				break;
 			case LEVELDISP:
 				break;
@@ -472,7 +473,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case TITLE:
 				break;
 			case PLAY:
-				t = wParam;
+				t = (char)wParam;
 				if (std::regex_search(std::string{ t }, std::regex("[A-Z]")) ||
 					std::regex_search(std::string{ t }, std::regex("[0-9]")))
 				{
@@ -630,28 +631,28 @@ void Init(HWND hWnd)
 
 	// 問題文およびタイマー
 	{
-		int posX = MonsterPosX - 48;
-		int posY = MonsterPosY + (256 + 50);
+		float posX = MonsterPosX - 48.f;
+		float posY = MonsterPosY + (256.f + 50.f);
 
 		ProbremStr = new Font(g_hMdcString, TRUE, recFont, posX, posY, 0, 0);
 		ProbremStr->SetFontBackGround(g_hMdcGauge);
 		ProbremStr->SetSize(GAUGE_WIDTH, GAUGE_HEIGHT);
 
-		posY += 74;
+		posY += 74.f;
 		InputStr = new Font(g_hMdcString, TRUE, recFont, posX, posY, 0, 0);
 		InputStr->SetFontBackGround(g_hMdcGauge);
 		InputStr->SetFontRed(g_hMdcRedString);
 		InputStr->SetSize(GAUGE_WIDTH, GAUGE_HEIGHT);
 
 		//posX = skullPosX;
-		posY += 74;
+		posY += 74.f;
 		Hp = new HP(g_hMdcGauge, FALSE, recGauge,
 			posX, posY, 0, 0,
 			RGB(255, 255, 255)
 		);
 		Hp->SetSize(GAUGE_WIDTH, GAUGE_HEIGHT - 20);
 
-		posY += 52;
+		posY += 52.f;
 		Timer = new Time(g_hMdcGauge, FALSE, recGauge,
 			posX, posY, 0, 0,
 			RGB(255, 255, 255)
@@ -665,8 +666,8 @@ void Init(HWND hWnd)
 	//aAudio->SetClip("TypingGame/audio/data/gameClear.mp3");
 	//aAudio->SetLoop(true);
 	//aAudio->Play();
-	
-	PlaySound(CString("audio/data/wav/battle1.wav"), nullptr, SND_FILENAME | SND_ASYNC | SND_LOOP);
+	PlaySound(CString("audio/data/wav/battleNormal.wav"), nullptr, SND_FILENAME | SND_ASYNC | SND_LOOP);
+
 	Phase = GAME_PHASE::TITLE;
 }
 
@@ -695,6 +696,7 @@ void Update()
 	case GAME_PHASE::LEVELDISP:
 		Sign->Update();
 		if (ReducMot->IsCompleted()) {
+			PlaySound(CString("audio/data/wav/levelDisplay.wav"), nullptr, SND_FILENAME | SND_ASYNC);
 			Phase = GAME_PHASE::PLAY;
 			Sign->SetUse(false);
 			Monster->SetUse(true);
@@ -702,6 +704,27 @@ void Update()
 		}
 		break;
 	case GAME_PHASE::PLAY:
+		if (!IsBGMSounded) {
+
+			nowTime = std::chrono::system_clock::now();
+			elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(nowTime - g_WaitStart).count();
+			// 1秒経過後にBGMを鳴らし始める
+			if (elapsed >= 2000) {
+				if (Mode == 0) {
+					if (level == 5) {
+						PlaySound(CString("audio/data/wav/battleBoss.wav"), nullptr, SND_FILENAME | SND_ASYNC);
+					}
+					else
+					{
+						PlaySound(CString("audio/data/wav/battleNormal.wav"), nullptr, SND_FILENAME | SND_ASYNC);
+					}
+				}
+				else if (Mode == 1) {
+					PlaySound(CString("audio/data/wav/battleExStarge.wav"), nullptr, SND_FILENAME | SND_ASYNC);
+				}
+				IsBGMSounded = true;
+			}
+		}
 		Play();
 		break;
 	case GAME_PHASE::RESULT:
@@ -1151,7 +1174,7 @@ void InitailizeProbrem()
 void InitializeSelection()
 {
 	RECT recSelect = { 0, 0, g_BitmapSelect.bmWidth, g_BitmapSelect.bmHeight };
-	POINT size{ 128.f, 64.f };
+	POINT size{ 128, 64 };
 	float initPosX = WINDOW_WIDTH / 2.f - (size.x / 2.f);
 	float initPosY = WINDOW_HEIGHT * 6.f / 10.f;
 	Selection1 = new Sample(
