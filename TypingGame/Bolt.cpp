@@ -1,5 +1,9 @@
+//#pragma comment(lib, "winmm.lib")
+//#include <mmsystem.h>
+#include <atlstr.h>
 #include "Bolt.h"
 #include "EffectMotion.h"
+#include "Audio.h"
 
 Bolt::Bolt(HDC hdc, BOOL trs, RECT rec, float px, float py, float sx, float sy)
 {
@@ -26,6 +30,7 @@ void Bolt::Update()
 	else {
 		SetUse(false);
 		SetRenderingFlag(false);
+		Audio::RePlayBGM();
 	}
 }
 
@@ -63,4 +68,5 @@ void Bolt::Start()
 	SetUse(true);
 	SetRenderingFlag(true);
 	startTime = timeGetTime();
+	Audio::PlayAsync("audio/data/wav/bolt.wav", false);
 }

@@ -1,5 +1,6 @@
 #include "Impact.h"
 #include "EffectMotion.h"
+#include "Audio.h"
 
 Impact::Impact(HDC hdc, BOOL trs, RECT rec, float px, float py, float sx, float sy)
 {
@@ -24,6 +25,7 @@ void Impact::Update()
 		motion->Update(this);
 	}
 	else {
+		Audio::RePlayBGM();
 		SetUse(false);
 		SetRenderingFlag(false);
 	}
@@ -56,4 +58,5 @@ void Impact::Start()
 	SetUse(true);
 	SetRenderingFlag(true);
 	startTime = timeGetTime();
+	Audio::PlayAsync("audio/data/wav/playerHitted.wav", false);
 }

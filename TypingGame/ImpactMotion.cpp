@@ -10,4 +10,3 @@ void ImpactMotion::Update(Effect* effect)
     }
     ++count;
 }
-

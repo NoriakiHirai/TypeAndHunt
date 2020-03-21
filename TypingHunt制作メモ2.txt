@@ -30,7 +30,6 @@ Sign = new Effect(
 Sign->SetSize(size.x, size.y);
 
 # サウンド
-〇 カーソル移動
 〇 決定
 〇 BGM
 〇 レベルdisp

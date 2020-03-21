@@ -1,5 +1,6 @@
 #include "BoltMotion.h"
 #include "Effect.h"
+#include "Audio.h"
 
 const float OFFSET_Y_MAX = 20.f;
 

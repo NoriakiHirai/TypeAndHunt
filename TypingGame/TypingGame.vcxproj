@@ -149,6 +149,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Audio.h" />
     <ClInclude Include="audio\AyameAudio.h" />
     <ClInclude Include="audio\ayame\Ayame.h" />
     <ClInclude Include="audio\ayame\AyameManager.h" />
@@ -175,6 +176,7 @@
     <ClInclude Include="utility.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Audio.cpp" />
     <ClCompile Include="audio\AyameAudio.cpp" />
     <ClCompile Include="audio\ayame\SoundManager.cpp" />
     <ClCompile Include="audio\ayame\SoundManagerWin.cpp" />

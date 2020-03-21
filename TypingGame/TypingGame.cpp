@@ -28,7 +28,7 @@
 #include "Bolt.h"
 #include "Impact.h"
 #include "ProbremInfo.h"
-#include "audio/AyameAudio.h"
+#include "Audio.h"
 
 #pragma comment(lib, "winmm.lib")
 
@@ -57,8 +57,6 @@ HINSTANCE hInst;                                // 現在のインターフェ�
 WCHAR szTitle[MAX_LOADSTRING];                  // タイトル バーのテキスト
 WCHAR szWindowClass[MAX_LOADSTRING];            // メイン ウィンドウ クラス名
 
-AyameAudio* aAudio;
-
 //文字列描画用配列
 std::vector<std::string> currentProbremSet;
 std::string probrems[10];
@@ -77,7 +75,7 @@ bool IsBGMSounded = false;
 const int PROBREM_MAX = 10;
 const int EX_STAGE_PROBREM_MAX = 100;
 const int LEVEL_MAX = 5;
-const int DEFAULT_LEVEL_EX_STAGE = 99;
+const int DEFAULT_LEVEL_EX_STAGE = 99;	// for test
 const int HP_MIN = 0;
 const int INPUT_MAX = 20;
 
@@ -201,8 +199,6 @@ void InitializeSelection();
 void SetUpProbremSet();
 void SetUpSelection(RECT rect1, RECT rect2);
 void Play();
-void PlayForLevelMode();
-void PlayFor1ooMode();
 void SetUpResult(int winner);
 void ResetInput();
 void SetUpWinSelection();
@@ -380,16 +376,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 		case VK_UP:
-			//PlaySound(CString("audio/data/wav/cursorMove.wav"), nullptr, SND_FILENAME | SND_ASYNC );
 			--Select;
-			//Select = (Select < 0 ? 0 : Select);
 			Select %= 2;
 			Select = std::abs(Select);
 			break;
 		case VK_DOWN:
-			//PlaySound(CString("audio/data/wav/cursorMove.wav"), nullptr, SND_FILENAME | SND_ASYNC);
 			++Select;
-			//Select = (Select > 1 ? 1 : Select);
 			Select %= 2;
 			break;
 		case VK_RETURN:
@@ -398,10 +390,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case NONE:
 				break;
 			case TITLE:
-				PlaySound(CString("audio/data/wav/decision.wav"), nullptr, SND_FILENAME | SND_SYNC);
+				Audio::PlaySync("audio/data/wav/decision.wav", false);
 				Phase = GAME_PHASE::LEVELDISP;
 				Msg->SetUse(false);
-				// for test
 				switch (Select)
 				{
 				case 0:
@@ -454,10 +445,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				}
 				break;
 			case RESULT:
+				Audio::PlaySync("audio/data/wav/decision.wav", false);
 				HideSelection();
 				SelectNextScene();
 				break;
 			case CLEAR:
+				Audio::PlaySync("audio/data/wav/decision.wav", false);
 				Phase = GAME_PHASE::TITLE;
 				SetUpTitle();
 				break;
@@ -532,11 +525,6 @@ void Init(HWND hWnd)
 	Select = 0;
 	Mode = 0;
 
-	// サウンドライブラリの初期化
-	//TCHAR str[] = {_T("C:\\Users\\nhirai\\source\\repos\\Games\\TypingGame\\TypingGame\\audio\\ayame\\Ayame.dll" )};
-	//CVoiceElementAyame::m_sAyameMgr.LoadDLL();
-	//CVoiceElementAyame::m_sAyameMgr.Initialize(hWnd);
-
 	InitializeHDC(hWnd);
 
 	// 背景やキャラクタなどの作成
@@ -568,7 +556,6 @@ void Init(HWND hWnd)
 		float initPosY = WINDOW_HEIGHT / 2.f - (size.y / 2.f) - 64.f;
 		Msg = new Sample(g_hMdcMsg, TRUE, recMsg,
 			initPosX, initPosY,
-			//(WINDOW_WIDTH * 2 / 10) + 50, WINDOW_HEIGHT * 2 / 10,
 			0, 0
 		);
 		Msg->SetSize(size.x, size.y);
@@ -603,7 +590,6 @@ void Init(HWND hWnd)
 		g_Bolt = new Bolt(
 			g_hMdcBolt, TRUE, recBolt,
 			initPosX, initPosY,
-			//float(WINDOW_WIDTH / 2 - 10), float(WINDOW_HEIGHT * 1 / 10 + 40),
 			0, 0
 		);
 		g_Bolt->SetSize(size.x, size.y);
@@ -662,10 +648,6 @@ void Init(HWND hWnd)
 
 	InitailizeProbrem();
 
-	//aAudio = new AyameAudio;
-	//aAudio->SetClip("TypingGame/audio/data/gameClear.mp3");
-	//aAudio->SetLoop(true);
-	//aAudio->Play();
 	PlaySound(CString("audio/data/wav/battleNormal.wav"), nullptr, SND_FILENAME | SND_ASYNC | SND_LOOP);
 
 	Phase = GAME_PHASE::TITLE;
@@ -696,8 +678,10 @@ void Update()
 	case GAME_PHASE::LEVELDISP:
 		Sign->Update();
 		if (ReducMot->IsCompleted()) {
-			PlaySound(CString("audio/data/wav/levelDisplay.wav"), nullptr, SND_FILENAME | SND_ASYNC);
+			Audio::PlayAsync("audio/data/wav/levelDisplay.wav", false);
 			Phase = GAME_PHASE::PLAY;
+			IsBGMSounded = false;
+			g_WaitStart = std::chrono::system_clock::now();
 			Sign->SetUse(false);
 			Monster->SetUse(true);
 			Timer->Start();
@@ -705,22 +689,23 @@ void Update()
 		break;
 	case GAME_PHASE::PLAY:
 		if (!IsBGMSounded) {
-
 			nowTime = std::chrono::system_clock::now();
 			elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(nowTime - g_WaitStart).count();
-			// 1秒経過後にBGMを鳴らし始める
-			if (elapsed >= 2000) {
+			if (elapsed >= 1500) {
 				if (Mode == 0) {
 					if (level == 5) {
-						PlaySound(CString("audio/data/wav/battleBoss.wav"), nullptr, SND_FILENAME | SND_ASYNC);
+						Audio::SetBGMName("audio/data/wav/battleBoss.wav");
+						Audio::PlayAsync("audio/data/wav/battleBoss.wav", true);
 					}
 					else
 					{
-						PlaySound(CString("audio/data/wav/battleNormal.wav"), nullptr, SND_FILENAME | SND_ASYNC);
+						Audio::SetBGMName("audio/data/wav/battleNormal.wav");
+						Audio::PlayAsync("audio/data/wav/battleNormal.wav", true);
 					}
 				}
 				else if (Mode == 1) {
-					PlaySound(CString("audio/data/wav/battleExStarge.wav"), nullptr, SND_FILENAME | SND_ASYNC);
+					Audio::SetBGMName("audio/data/wav/battleExStarge.wav");
+					Audio::PlayAsync("audio/data/wav/battleExStarge.wav", true);
 				}
 				IsBGMSounded = true;
 			}
@@ -735,6 +720,12 @@ void Update()
 		elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(nowTime - g_WaitStart).count();
 		if (elapsed >= 1500) {
 			// 1.5秒が過ぎたらHPなどを消して、選択肢を表示する
+			if (Winner == 1) {
+				Audio::PlayOneShot("audio/data/wav/win.wav");
+			}
+			else {
+				Audio::PlayOneShot("audio/data/wav/loose.wav");
+			}
 			Msg->SetUse(true);
 			ProbremStr->SetUse(false);
 			InputStr->SetUse(false);
@@ -819,9 +810,6 @@ void Draw(HDC hdc)
 //===========================================================================
 void Finalize()
 {
-	// サウンド
-	CVoiceElementAyame::m_sAyameMgr.Release();
-
 	// ビットマップオブジェクトを解放する
 	DeleteObject(g_hbmpBG);
 	DeleteObject(g_hbmpString);
@@ -874,7 +862,6 @@ void Finalize()
 	SAFE_DELETE(Selection1);
 	SAFE_DELETE(Selection2);
 	SAFE_DELETE(SelectFrame);
-	SAFE_DELETE(aAudio);
 }
 
 void InitializeHDC(HWND hWnd)
@@ -1069,106 +1056,106 @@ void InitailizeProbrem()
 	probrems5[8] = "TURKMENISTAN";
 	probrems5[9] = "LIECHTENSTEIN";
 
-	probremsExtra[0] = "PROSPECT";
-	probremsExtra[1] = "QUANTITY";
-	probremsExtra[2] = "RACE";
-	probremsExtra[3] = "REHEARSAL";
-	probremsExtra[4] = "RELATION";
-	probremsExtra[5] = "RENTAL";
-	probremsExtra[6] = "RESPECT";
-	probremsExtra[7] = "RESPONSIBILITY";
-	probremsExtra[8] = "RIDE";
-	probremsExtra[9] = "ROAD";
-	probremsExtra[10] = "SALARY";
-	probremsExtra[11] = "SAND";
-	probremsExtra[12] = "SCENERY";
-	probremsExtra[13] = "SEAT";
-	probremsExtra[14] = "SEMINAR";
-	probremsExtra[15] = "SEPTEMBER";
-	probremsExtra[16] = "SHIPMENT";
-	probremsExtra[17] = "SHORTAGE";
-	probremsExtra[18] = "SINGING";
-	probremsExtra[19] = "SNOW";
-	probremsExtra[20] = "SPECIALIST";
-	probremsExtra[21] = "SPRING";
-	probremsExtra[22] = "STAIR";
-	probremsExtra[23] = "STANDARD";
-	probremsExtra[24] = "STAR";
-	probremsExtra[25] = "STEAK";
-	probremsExtra[26] = "STRATEGY";
-	probremsExtra[27] = "STUDYING";
-	probremsExtra[28] = "SUBJECT";
-	probremsExtra[29] = "SUBMISSION";
-	probremsExtra[30] = "SUGGESTION";
-	probremsExtra[31] = "SURROUNDINGS";
-	probremsExtra[32] = "TALENT";
-	probremsExtra[33] = "TALK";
-	probremsExtra[34] = "TARGET";
-	probremsExtra[35] = "TELEPHONE";
-	probremsExtra[36] = "TEST";
-	probremsExtra[37] = "THEATER";
-	probremsExtra[38] = "THEME";
-	probremsExtra[39] = "TICKET";
-	probremsExtra[40] = "TIN";
-	probremsExtra[41] = "TOAST";
-	probremsExtra[42] = "TOUCH";
-	probremsExtra[43] = "TRAFFIC";
-	probremsExtra[44] = "TREND";
-	probremsExtra[45] = "TYPHOON";
-	probremsExtra[46] = "USER";
-	probremsExtra[47] = "VIDEO";
-	probremsExtra[48] = "VISITOR";
-	probremsExtra[49] = "VOCABULARY";
-	probremsExtra[50] = "VOLUME";
-	probremsExtra[51] = "WEDNESDAY";
-	probremsExtra[52] = "WEIGHT";
-	probremsExtra[53] = "WHILE";
-	probremsExtra[54] = "WINTER";
-	probremsExtra[55] = "WOOD";
-	probremsExtra[56] = "WORKPLACE";
-	probremsExtra[57] = "WRAPPING";
-	probremsExtra[58] = "YAWN";
-	probremsExtra[59] = "ACADEMY";
-	probremsExtra[60] = "ACCURACY";
+	probremsExtra[0] = "ADMIRATION";
+	probremsExtra[1] = "ACTING";
+	probremsExtra[2] = "AUSTRIA";
+	probremsExtra[3] = "ACTOR";
+	probremsExtra[4] = "AGREEMENT";
+	probremsExtra[5] = "SEMINAR";
+	probremsExtra[6] = "TREND";
+	probremsExtra[7] = "RIDE";
+	probremsExtra[8] = "STAIR";
+	probremsExtra[9] = "ASSIGNMENT";
+	probremsExtra[10] = "SINGING";
+	probremsExtra[11] = "VOLUME";
+	probremsExtra[12] = "RENTAL";
+	probremsExtra[13] = "SNOW";
+	probremsExtra[14] = "BALLOON";
+	probremsExtra[15] = "SPECIALIST";
+	probremsExtra[16] = "SALARY";
+	probremsExtra[17] = "DEPTH";
+	probremsExtra[18] = "BACKGROUND";
+	probremsExtra[19] = "SUBMISSION";
+	probremsExtra[20] = "ATHLETE";
+	probremsExtra[21] = "ANNIVERSARY";
+	probremsExtra[22] = "TICKET";
+	probremsExtra[23] = "ARRIVAL";
+	probremsExtra[24] = "THEME";
+	probremsExtra[25] = "AGENCY";
+	probremsExtra[26] = "TALK";
+	probremsExtra[27] = "RESPONSIBILITY";
+	probremsExtra[28] = "SUGGESTION";
+	probremsExtra[29] = "TEST";
+	probremsExtra[30] = "ANCESTOR";
+	probremsExtra[31] = "ATTACK";
+	probremsExtra[32] = "DESCRIPTION";
+	probremsExtra[33] = "ASSEMBLY";
+	probremsExtra[34] = "RELATION";
+	probremsExtra[35] = "TRAFFIC";
+	probremsExtra[36] = "SEPTEMBER";
+	probremsExtra[37] = "APOLOGY";
+	probremsExtra[38] = "TYPHOON";
+	probremsExtra[39] = "TELEPHONE";
+	probremsExtra[40] = "TOAST";
+	probremsExtra[41] = "TARGET";
+	probremsExtra[42] = "ROAD";
+	probremsExtra[43] = "SEAT";
+	probremsExtra[44] = "ADDITION";
+	probremsExtra[45] = "WOOD";
+	probremsExtra[46] = "STEAK";
+	probremsExtra[47] = "APPLICATION";
+	probremsExtra[48] = "SUBJECT";
+	probremsExtra[49] = "ACADEMY";
+	probremsExtra[50] = "WORKPLACE";
+	probremsExtra[51] = "SURROUNDINGS";
+	probremsExtra[52] = "SAND";
+	probremsExtra[53] = "STANDARD";
+	probremsExtra[54] = "ADVERTISING";
+	probremsExtra[55] = "WHILE";
+	probremsExtra[56] = "WEDNESDAY";
+	probremsExtra[57] = "DESIGN";
+	probremsExtra[58] = "AMBASSADOR";
+	probremsExtra[59] = "ALPHABET";
+	probremsExtra[60] = "PROSPECT";
 	probremsExtra[61] = "ACHE";
-	probremsExtra[62] = "ACTING";
-	probremsExtra[63] = "ACTOR";
-	probremsExtra[64] = "ACTRESS";
-	probremsExtra[65] = "ADDITION";
-	probremsExtra[66] = "ADMIRATION";
-	probremsExtra[67] = "ADVENTURE";
-	probremsExtra[68] = "ADVERTISING";
-	probremsExtra[69] = "AGENCY";
-	probremsExtra[70] = "AGENT";
-	probremsExtra[71] = "AGREEMENT";
-	probremsExtra[72] = "AID";
-	probremsExtra[73] = "ALPHABET";
-	probremsExtra[74] = "AMBASSADOR";
-	probremsExtra[75] = "ANCESTOR";
-	probremsExtra[76] = "ANNIVERSARY";
-	probremsExtra[77] = "APOLOGY";
-	probremsExtra[78] = "APPEAL";
-	probremsExtra[79] = "APPLICATION";
-	probremsExtra[80] = "ARRIVAL";
-	probremsExtra[81] = "ASIA";
-	probremsExtra[82] = "ASSEMBLY";
-	probremsExtra[83] = "ASSIGNMENT";
-	probremsExtra[84] = "ATHLETE";
-	probremsExtra[85] = "ATTACK";
-	probremsExtra[86] = "AUSTRIA";
-	probremsExtra[87] = "BACKGROUND";
-	probremsExtra[88] = "BACKYARD";
-	probremsExtra[89] = "BALLOON";
-	probremsExtra[90] = "BEACH";
-	probremsExtra[91] = "BEDTIME";
-	probremsExtra[92] = "BENCH";
-	probremsExtra[93] = "BICYCLIST";
-	probremsExtra[94] = "BIKE";
-	probremsExtra[95] = "DEPARTMENT";
-	probremsExtra[96] = "DEPENDENCY";
-	probremsExtra[97] = "DEPTH";
-	probremsExtra[98] = "DESCRIPTION";
-	probremsExtra[99] = "DESIGN";
+	probremsExtra[62] = "SHORTAGE";
+	probremsExtra[63] = "WINTER";
+	probremsExtra[64] = "TIN";
+	probremsExtra[65] = "TOUCH";
+	probremsExtra[66] = "VIDEO";
+	probremsExtra[67] = "DEPENDENCY";
+	probremsExtra[68] = "REHEARSAL";
+	probremsExtra[69] = "APPEAL";
+	probremsExtra[70] = "THEATER";
+	probremsExtra[71] = "STRATEGY";
+	probremsExtra[72] = "BIKE";
+	probremsExtra[73] = "BACKYARD";
+	probremsExtra[74] = "VOCABULARY";
+	probremsExtra[75] = "ADVENTURE";
+	probremsExtra[76] = "BICYCLIST";
+	probremsExtra[77] = "QUANTITY";
+	probremsExtra[78] = "ASIA";
+	probremsExtra[79] = "STAR";
+	probremsExtra[80] = "TALENT";
+	probremsExtra[81] = "VISITOR";
+	probremsExtra[82] = "BEACH";
+	probremsExtra[83] = "YAWN";
+	probremsExtra[84] = "WEIGHT";
+	probremsExtra[85] = "RACE";
+	probremsExtra[86] = "RESPECT";
+	probremsExtra[87] = "AID";
+	probremsExtra[88] = "WRAPPING";
+	probremsExtra[89] = "BEDTIME";
+	probremsExtra[90] = "USER";
+	probremsExtra[91] = "AGENT";
+	probremsExtra[92] = "SPRING";
+	probremsExtra[93] = "ACCURACY";
+	probremsExtra[94] = "BENCH";
+	probremsExtra[95] = "ACTRESS";
+	probremsExtra[96] = "DEPARTMENT";
+	probremsExtra[97] = "SHIPMENT";
+	probremsExtra[98] = "STUDYING";
+	probremsExtra[99] = "SCENERY";
 }
 
 void InitializeSelection()
@@ -1296,33 +1283,6 @@ void Play()
 	}
 }
 
-void PlayForLevelMode()
-{
-	g_Bolt->Update();
-	SpikyEffect->Update();
-
-	// タイマーが0になっていないかチェック
-	if (Timer->ResetCheck()) {
-		// プレイヤーはダメージを受ける
-		Hp->UpdateHP(-1);
-		SpikyEffect->Start();
-		if (Hp->GetHP() <= HP_MIN) {
-			Phase = GAME_PHASE::RESULT;
-			SetUpResult(2);
-		}
-		else {
-			Timer->Start();
-		}
-	}
-	else {
-		Timer->Update();
-	}
-}
-
-void PlayFor1ooMode()
-{
-}
-
 void SetUpResult(int winner)
 {
 	Winner = winner;
@@ -1343,6 +1303,9 @@ void SetUpResult(int winner)
 	// エフェクトの再生が完了するまで選択肢は隠しておく
 	HideSelection();
 	g_WaitStart = std::chrono::system_clock::now();
+
+	// サウンドの準備
+	Audio::PlayOneShotInit();
 }
 
 void ResetInput() {
@@ -1516,7 +1479,6 @@ void SetUpNormalMode()
 void SetUp100Mode()
 {
 	level = DEFAULT_LEVEL_EX_STAGE;
-
 	// 問題集初期化
 	SetUpProbremSet();
 
@@ -1550,6 +1512,8 @@ void SetUpGameClear()
 	Sign->SetPosition(posX, posY);
 	Sign->SetSize(size.x, size.y);
 	Sign->SetRect(RECT{ 0, 198, 128, 22 });
+
+	Audio::PlayAsync("audio/data/wav/gameClear.wav", false);
 }
 
 void SetUpTitle()
@@ -1572,6 +1536,8 @@ void SetUpTitle()
 	ResetInput();
 
 	Select = 0;
+
+	Audio::PlayAsync("audio/data/wav/battleNormal.wav", true);
 }
 
 void MoveSelectFame()
